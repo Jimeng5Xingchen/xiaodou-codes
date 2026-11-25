@@ -15,7 +15,9 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # 不取消进行中的部署：GitHub Pages 同一时刻只允许一个部署，
+  # 并发取消会让先发的部署半途中断，反而两边都失败。
+  cancel-in-progress: false
 
 jobs:
   deploy:
