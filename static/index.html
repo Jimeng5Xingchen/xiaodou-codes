@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>小豆邀请码抓码站</title>
 <meta name="description" content="聚合 B 站与社区公开分享的小豆（豆包旗下 AI 个人助理）邀请码，并用豆包官方接口校验有效性。">
-<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
-<link rel="icon" type="image/png" sizes="180x180" href="/img/favicon-180.png">
-<link rel="apple-touch-icon" href="/img/favicon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="180x180" href="img/favicon-180.png">
+<link rel="apple-touch-icon" href="img/favicon-180.png">
 <meta property="og:title" content="小豆邀请码抓码站">
 <meta property="og:description" content="聚合多社区公开分享的小豆邀请码，官方接口实时校验有效性。">
-<meta property="og:image" content="/img/logo-512.png">
+<meta property="og:image" content="img/logo-512.png">
 <meta name="theme-color" content="#0e1116">
 <!-- 样式已拆分：tokens(设计令牌) / base(布局组件) / glass(毛玻璃胶囊) / material(安卓11风格) / ui-panel(外观控制组件) / responsive(响应式) -->
 <!--
@@ -30,7 +30,7 @@
     var dir=ASSETS[i][0],type=ASSETS[i][1],file=ASSETS[i][2];
     var link=document.createElement('link');
     link.rel='stylesheet'; link.type=type;
-    link.href='/'+dir+'/'+file+(sc?('?sharecode='+encodeURIComponent(sc)):'');
+    link.href=dir+'/'+file+(sc?('?sharecode='+encodeURIComponent(sc)):'');
     document.head.appendChild(link);
   }
   // 图标 / 徽标同样需要带 sharecode，否则平台网关会 403
@@ -44,7 +44,7 @@
   window.__XD_SHARECODE__=sc;
   // 运行时配置（GitHub Pages 产物）：用 document.write 同步插入，
   // 保证在解析到主业务脚本之前就绪；自建部署没有该文件时静默忽略。
-  document.write('<script src="/config.js'+(sc?('?sharecode='+encodeURIComponent(sc)):'')+'"><\/script>');
+  document.write('<script src="config.js'+(sc?('?sharecode='+encodeURIComponent(sc)):'')+'"><\/script>');
 })();
 </script>
 </head>
@@ -60,7 +60,7 @@
         (function(){
           var l=document.getElementById('brandLogo'); if(!l) return;
           var sc=window.__XD_SHARECODE__||'';
-          l.src='/img/logo.png'+(sc?('?sharecode='+encodeURIComponent(sc)):'');
+          l.src='img/logo.png'+(sc?('?sharecode='+encodeURIComponent(sc)):'');
         })();
         </script>
         <h1 style="margin:0">小豆邀请码<span class="dot">抓码站</span></h1>
@@ -437,7 +437,7 @@
   // 线上网关要求静态资源也带 sharecode；本地 / 自建部署不带即可
   var sc=(typeof window.__XD_SHARECODE__==='string')?window.__XD_SHARECODE__:'';
   var s=document.createElement('script');
-  s.src='/js/ui-control.js'+(sc?('?sharecode='+encodeURIComponent(sc)):'');
+  s.src='js/ui-control.js'+(sc?('?sharecode='+encodeURIComponent(sc)):'');
   s.async=false;               // 保证在业务脚本前执行
   document.head.appendChild(s);
 })();
