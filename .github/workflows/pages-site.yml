@@ -30,10 +30,6 @@ jobs:
 
       - name: 配置 Pages
         uses: actions/configure-pages@v5
-        with:
-          # 站点仓库被覆盖推送后 Pages 记录可能失效，
-          # enablement=true 允许工作流自动重新启用 Pages。
-          enablement: true
 
       - name: 上传站点产物
         uses: actions/upload-pages-artifact@v3
