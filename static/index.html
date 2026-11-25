@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>小豆邀请码抓码站</title>
 <meta name="description" content="聚合 B 站与社区公开分享的小豆（豆包旗下 AI 个人助理）邀请码，并用豆包官方接口校验有效性。">
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="180x180" href="/img/favicon-180.png">
+<link rel="apple-touch-icon" href="/img/favicon-180.png">
+<meta property="og:title" content="小豆邀请码抓码站">
+<meta property="og:description" content="聚合多社区公开分享的小豆邀请码，官方接口实时校验有效性。">
+<meta property="og:image" content="/img/logo-512.png">
+<meta name="theme-color" content="#0e1116">
 <!-- 样式已拆分：tokens(设计令牌) / base(布局组件) / glass(毛玻璃胶囊) / material(安卓11风格) / ui-panel(外观控制组件) / responsive(响应式) -->
 <!--
   线上平台网关要求每个请求（含 CSS / JS 静态资源）都带 sharecode 参数。
@@ -26,8 +33,18 @@
     link.href='/'+dir+'/'+file+(sc?('?sharecode='+encodeURIComponent(sc)):'');
     document.head.appendChild(link);
   }
+  // 图标 / 徽标同样需要带 sharecode，否则平台网关会 403
+  var withSc=function(u){ return sc ? u + (u.indexOf('?')>=0?'&':'?') + 'sharecode='+encodeURIComponent(sc) : u; };
+  var icons=document.querySelectorAll('link[rel="icon"],link[rel="apple-touch-icon"],meta[property="og:image"]');
+  for(var j=0;j<icons.length;j++){
+    var el=icons[j], attr=el.getAttribute('href')||el.getAttribute('content');
+    if(attr) el.setAttribute(el.tagName==='META'?'content':'href', withSc(attr));
+  }
   // 供后面的 ui-control.js 复用
   window.__XD_SHARECODE__=sc;
+  // 运行时配置（GitHub Pages 产物）：用 document.write 同步插入，
+  // 保证在解析到主业务脚本之前就绪；自建部署没有该文件时静默忽略。
+  document.write('<script src="/config.js'+(sc?('?sharecode='+encodeURIComponent(sc)):'')+'"><\/script>');
 })();
 </script>
 </head>
@@ -36,7 +53,18 @@
 <div class="wrap">
   <header style="position:relative">
     <div class="h1row">
-      <h1 style="margin:0">小豆邀请码<span class="dot">抓码站</span></h1>
+      <div class="brand">
+        <img class="brand-logo" id="brandLogo" alt="小豆抓码站 LOGO" width="44" height="44">
+        <script>
+        // 紧跟 <img> 解析，确保在首屏立即取到带 sharecode 的图片地址
+        (function(){
+          var l=document.getElementById('brandLogo'); if(!l) return;
+          var sc=window.__XD_SHARECODE__||'';
+          l.src='/img/logo.png'+(sc?('?sharecode='+encodeURIComponent(sc)):'');
+        })();
+        </script>
+        <h1 style="margin:0">小豆邀请码<span class="dot">抓码站</span></h1>
+      </div>
       <button class="theme-btn" id="themeBtn" title="外观设置" aria-haspopup="true" aria-expanded="false">
         <span class="swatch"></span><span id="themeLabel">外观</span>
       </button>
@@ -142,6 +170,12 @@
     请优先使用标注「官方校验有效」的码；本工具不保证任何码可用，激活与否以小豆 App 实际提示为准。
   </div>
 
+  <!-- 静态模式提示：GitHub Pages 纯静态部署、无实时后端时显示 -->
+  <div class="banner banner-static" id="staticTip" hidden>
+    <b>静态快照</b>　当前为 GitHub Pages 静态快照模式：邀请码列表来自最近一次自动采集，
+    登录、注册、提交邀请码等需要实时后端的功能暂不可用。实时接口恢复后将自动切换。
+  </div>
+
   <div class="stats" id="stats"></div>
 
   <!-- 今日码池推荐 -->
@@ -180,7 +214,7 @@
   </div>
 
   <p class="meta">
-    <span><span class="dot-live"></span>数据更新：<span id="upd">加载中…</span></span>
+    <span><span class="dot-live" id="liveDot"></span>数据更新：<span id="upd">加载中…</span></span>
     <span>每 25 秒自动抓取并刷新</span>
     <span id="cnt"></span>
   </p>
@@ -210,7 +244,7 @@
     <p class="stip" id="smodeTip">站内共享需要先登录，登录后你的邀请码会展示在码池里并标注分享者。</p>
     <div class="srow">
       <input class="sinput" id="scode" placeholder="粘贴邀请码，多个用空格/逗号分隔">
-      <button id="ssubmit">校验并提交</button>
+      <button id="ssubmit" data-need-api>校验并提交</button>
     </div>
     <div class="srow" style="margin-top:8px">
       <a class="btn bm" id="bmlink" href="#" title="把它拖到浏览器书签栏，在已登录的社区页面点击使用">📌 抓取书签（拖到书签栏）</a>
@@ -233,7 +267,7 @@
     <div class="panelbox" id="accountGuest">
       <h2>我的账号</h2>
       <p class="mtip">登录后，你分享的邀请码会展示你的用户名，还能编辑个人资料、更换邮箱。</p>
-      <button id="guestLoginBtn" style="margin-top:8px">登录 / 注册</button>
+      <button id="guestLoginBtn" data-need-api style="margin-top:8px">登录 / 注册</button>
     </div>
 
     <div class="panelbox" id="accountPanel" hidden style="margin-bottom:14px">
@@ -412,12 +446,17 @@
 const $ = s => document.querySelector(s);
 // 线上平台网关要求每个请求带 sharecode；从当前地址提取并附加到所有 API 请求
 const SHARECODE = (()=>{ try{ return new URLSearchParams(location.search).get('sharecode')||''; }catch(e){ return ''; } })();
-// API 基址：可把前端独立托管到 Cloudflare Pages，用 ?api=https://后端域名 指定后端。
+// API 基址：可把前端独立托管到 Cloudflare Pages / GitHub Pages，
+// 用 ?api=https://后端域名 指定后端。
 // 缺省走同源（相对路径），与现有部署完全一致。
-// 优先级：URL 参数 > 构建时注入的 __XD_API_BASE__（Cloudflare Pages 部署产物）> 同源。
-// 注意：构建时由 cf-pages/build.sh 把下面这行的空串替换成后端地址。
+// 优先级：URL 参数 > config.json（运行时配置）> 构建时注入的 __XD_API_BASE__ > 同源。
+// 注意：构建时由 scripts/build_pages.py / cf-pages/build.sh 把下面这行的空串替换成后端地址。
 const __XD_API_BASE__ = '';
-const API_BASE = (()=>{
+// 静态模式标记：构建时若包含 data/codes.json 快照则置为 true
+const __XD_STATIC__ = false;
+// 构建期注入的跨域 sharecode（跨域后端同样架在平台网关后时需要）
+const __XD_SHARECODE__ = '';
+let API_BASE = (()=>{
   try{
     const q = new URLSearchParams(location.search).get('api');
     if(q) return q.replace(/\/+$/,'');
@@ -427,9 +466,24 @@ const API_BASE = (()=>{
   }catch(e){}
   return '';
 })();
+// 跨域后端的 sharecode：GitHub Pages / CF Pages 独立托管时，
+// 线上平台网关仍要求每个 API 请求带 sharecode，因此允许单独配置。
+let API_SHARECODE = '';
+try{
+  if(__XD_SHARECODE__) API_SHARECODE = String(__XD_SHARECODE__);
+}catch(e){}
+try{
+  const rc = window.__XD_CONFIG__ || {};
+  if(!API_BASE && rc.api) API_BASE = String(rc.api).replace(/\/+$/,'');
+  if(!API_SHARECODE && rc.sharecode) API_SHARECODE = String(rc.sharecode);
+}catch(e){}
 function apiUrl(path){
-  // 跨域时后端不是平台网关，不需要 sharecode
-  if(API_BASE) return API_BASE + path;
+  // 跨域：后端可能同样架在平台网关后（需要 sharecode），也可能自建（不需要）
+  if(API_BASE){
+    const sc = API_SHARECODE || SHARECODE;
+    if(!sc) return API_BASE + path;
+    return API_BASE + path + (path.includes('?')?'&':'?') + 'sharecode=' + encodeURIComponent(sc);
+  }
   if(!SHARECODE) return path;
   return path + (path.includes('?')?'&':'?') + 'sharecode=' + encodeURIComponent(SHARECODE);
 }
@@ -667,15 +721,53 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDetail(); });
 async function load(){
   try{
     const r=await apiFetch('/api/codes?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
     const j=await r.json();
-    DATA=j;
-    $('#upd').textContent=(j.lastUpdated||'未知')+(j.refreshing?'（正在采集中…）':'');
-    if(j.errors&&j.errors.length) $('#err').textContent=' ⚠ 采集告警：'+j.errors.join('；');
-    renderCommunity(); renderStats(); renderReco(); render();
-    if(ME) renderMyShares();
+    applyData(j, false);
   }catch(e){
+    // 实时 API 不可用（纯静态 Pages 部署 / 后端休眠）→ 回退到构建时快照
+    const snap = await loadSnapshot();
+    if(snap){
+      applyData(snap, true);
+      return;
+    }
     $('#list').innerHTML='<div class="empty">数据加载失败，正在重试…</div>';
   }
+}
+// 应用一份数据到页面。isStatic=true 表示来自静态快照（无后端交互能力）
+function applyData(j, isStatic){
+  DATA=j;
+  DATA.__static = !!isStatic;
+  const upd=(j.lastUpdated||'未知');
+  $('#upd').textContent=upd+(isStatic?'（静态快照）':(j.refreshing?'（正在采集中…）':''));
+  if(j.errors&&j.errors.length) $('#err').textContent=' ⚠ 采集告警：'+j.errors.join('；');
+  if(isStatic){ const d=$('#liveDot'); if(d) d.style.background='var(--warn)'; }
+  renderCommunity(); renderStats(); renderReco(); render();
+  if(ME) renderMyShares();
+  if(isStatic) markStaticMode();
+}
+// 静态模式提示：隐藏需要后端的交互入口，明确告知用户
+function markStaticMode(){
+  const tip=document.querySelector('#staticTip');
+  if(tip) tip.hidden=false;
+  document.querySelectorAll('[data-need-api]').forEach(el=>{ el.disabled=true; el.title='静态模式下不可用'; });
+  document.querySelectorAll('[data-need-api]').forEach(el=>{
+    el.style.opacity='.5'; el.style.pointerEvents='none';
+  });
+}
+// 加载构建时快照（GitHub Pages 纯静态部署的核心数据源）
+let _snapCache=null, _snapTried=false;
+async function loadSnapshot(){
+  if(_snapCache) return _snapCache;
+  if(_snapTried) return null;
+  _snapTried=true;
+  try{
+    const r=await fetch('data/codes.json?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok) return null;
+    const j=await r.json();
+    if(j && Array.isArray(j.codes)){ _snapCache=j; return j; }
+  }catch(e){}
+  return null;
 }
 
 // ---- 登录 / 注册 ----
@@ -1041,7 +1133,20 @@ try{
 checkMe();
 // 每 25 秒自动抓取一次并刷新：后端有采集锁 + 官方校验 TTL 缓存保护，不会打爆额度
 load();
-setInterval(()=>{ apiFetch('/api/refresh').catch(()=>{}); load(); }, 25000);
+// 静态快照模式（无实时后端）下降低轮询频率，避免无意义的失败请求
+let _pollMs = 25000;
+function schedulePoll(){
+  setInterval(()=>{
+    if(DATA && DATA.__static){
+      // 静态模式：只重试快照，且频率降到 5 分钟
+      if(_pollMs !== 300000){ _pollMs=300000; }
+      load();
+    }else{
+      apiFetch('/api/refresh').catch(()=>{}); load();
+    }
+  }, _pollMs);
+}
+schedulePoll();
 </script>
 </body>
 </html>

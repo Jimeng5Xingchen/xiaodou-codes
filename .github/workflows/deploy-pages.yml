@@ -1,0 +1,112 @@
+name: 采集并部署 GitHub Pages
+
+# 私有仓库是源码仓库，公开仓库 xiaodou-pages 承载 Pages 站点。
+# 每次运行：拉取最新源码 → 执行采集器 → 生成静态快照 → 构建站点 → 推送并触发 Pages 部署。
+
+on:
+  schedule:
+    # 每 30 分钟采集一次（GitHub Actions 定时任务，最小间隔 5 分钟）
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+    inputs:
+      skip_collect:
+        description: '跳过采集，仅用已有快照重新构建'
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - 'collector.py'
+      - 'app.py'
+      - 'static/**'
+      - 'scripts/**'
+      - '.github/workflows/deploy-pages.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    name: 采集 · 构建 · 部署
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 执行多源采集
+        if: ${{ !inputs.skip_collect }}
+        run: |
+          mkdir -p data
+          python - <<'PY'
+          import json, sys, traceback
+          sys.path.insert(0, '.')
+          try:
+              import collector
+              payload = collector.run_once()
+          except Exception:
+              traceback.print_exc()
+              # 采集失败不应让整条流水线失败：保留上一份快照继续发布
+              payload = None
+          if payload:
+              with open('data/codes.json', 'w', encoding='utf-8') as fh:
+                  json.dump(payload, fh, ensure_ascii=False)
+              print('采集完成:', json.dumps(payload.get('counts', {}), ensure_ascii=False))
+              print('采集告警:', payload.get('errors', []))
+          else:
+              print('采集失败，沿用仓库内已有快照')
+          PY
+
+      - name: 准备快照文件
+        run: |
+          mkdir -p data
+          if [ ! -f data/codes.json ]; then
+            echo '{"codes":[],"counts":{"total":0},"errors":["尚无采集快照"],"lastUpdated":""}' > data/codes.json
+          fi
+
+      - name: 构建 Pages 站点
+        env:
+          XD_API_BASE: ${{ vars.XD_API_BASE }}
+          XD_SHARECODE: ${{ vars.XD_SHARECODE }}
+        run: |
+          python scripts/build_pages.py --out site
+          ls -la site
+
+      - name: 提交到公开站点仓库
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
+          PAGES_REPO: ${{ vars.PAGES_REPO }}
+          DEPLOY_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+        run: |
+          set -e
+          if [ -z "$DEPLOY_TOKEN" ]; then
+            echo "未配置 secrets.PAGES_DEPLOY_TOKEN，跳过推送（站点仓库未同步）"
+            exit 0
+          fi
+          REPO="${PAGES_REPO:-Jimeng5Xingchen/xiaodou-pages}"
+          git init -q site
+          cd site
+          git checkout -q -b main
+          git add -A
+          if git diff --cached --quiet; then
+            echo "站点内容无变化，跳过推送"
+          else
+            git commit -q -m "chore: 更新站点快照 $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git remote add origin "https://${DEPLOY_TOKEN}@github.com/${REPO}.git"
+            git push -f origin main
+            echo "已推送到 ${REPO}"
+          fi

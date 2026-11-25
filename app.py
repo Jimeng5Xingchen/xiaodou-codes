@@ -261,9 +261,10 @@ def index() -> Response:
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
-# 静态资源：CSS / JS 已从 index.html 拆出为独立文件
+# 静态资源：CSS / JS / 图片 已从 index.html 拆出为独立文件
 app.mount("/css", StaticFiles(directory=os.path.join(STATIC_DIR, "css")), name="css")
 app.mount("/js", StaticFiles(directory=os.path.join(STATIC_DIR, "js")), name="js")
+app.mount("/img", StaticFiles(directory=os.path.join(STATIC_DIR, "img")), name="img")
 
 
 @app.get("/api/codes")
