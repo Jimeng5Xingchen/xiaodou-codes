@@ -85,10 +85,6 @@ jobs:
 
       - name: 提交到公开站点仓库
         env:
-          GIT_AUTHOR_NAME: github-actions[bot]
-          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
-          GIT_COMMITTER_NAME: github-actions[bot]
-          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
           PAGES_REPO: ${{ vars.PAGES_REPO }}
           DEPLOY_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN }}
         run: |
@@ -97,20 +93,4 @@ jobs:
             echo "未配置 secrets.PAGES_DEPLOY_TOKEN，跳过推送（站点仓库未同步）"
             exit 0
           fi
-          REPO="${PAGES_REPO:-Jimeng5Xingchen/xiaodou-pages}"
-          # 站点仓库的 Pages 部署工作流必须随产物一起保留，
-          # 否则每次推送都会把仓库覆盖成纯静态文件、导致 Pages 失去发布入口。
-          mkdir -p site/.github/workflows
-          cp .github/workflows/pages-site.yml site/.github/workflows/deploy.yml
-          git init -q site
-          cd site
-          git checkout -q -b main
-          git add -A
-          if git diff --cached --quiet; then
-            echo "站点内容无变化，跳过推送"
-          else
-            git commit -q -m "chore: 更新站点快照 $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git remote add origin "https://${DEPLOY_TOKEN}@github.com/${REPO}.git"
-            git push -f origin main
-            echo "已推送到 ${REPO}"
-          fi
+          bash scripts/publish_pages.sh

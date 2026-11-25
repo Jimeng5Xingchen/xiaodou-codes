@@ -4,3 +4,5 @@ __pycache__/
 *.sqlite3
 cf-pages/dist/
 site/
+site_build/
+site_work/
