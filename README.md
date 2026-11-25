@@ -155,6 +155,47 @@ npx wrangler pages deploy dist --project-name=xiaodou-codes
 
 详细说明与 Cloudflare 额度数据见 [`cf-pages/README.md`](cf-pages/README.md)。
 
+### 方式三：GitHub Pages（源码私有 + 站点公开）
+
+GitHub **免费套餐不支持私有仓库开 Pages**（报 `Your current plan does not support
+GitHub Pages for this repository`），因此采用双仓库结构：
+
+| 仓库 | 可见性 | 职责 |
+|---|---|---|
+| `Jimeng5Xingchen/xiaodou-codes` | **private** | 全部源码（后端 / 前端 / 工作流），不公开 |
+| `Jimeng5Xingchen/xiaodou-pages` | public | 仅 Pages 站点产物（HTML/CSS/JS/图片/快照） |
+
+流程由 `.github/workflows/deploy-pages.yml` 自动完成：
+
+```
+定时（每 30 分钟）/ 手动触发
+  → Actions 拉取私有仓源码
+  → 执行 collector.run_once() 多源采集（零第三方依赖，urllib + curl）
+  → 写入 data/codes.json 快照
+  → scripts/build_pages.py 构建站点（注入 API 基址、sharecode、快照）
+  → 推送产物到公开仓 → 公开仓的 deploy.yml 发布 GitHub Pages
+```
+
+站点地址：**https://jimeng5xingchen.github.io/xiaodou-pages/**
+
+配置项（仓库级 variable / secret，在私有仓 `Settings → Secrets`）：
+
+| 名称 | 类型 | 值 |
+|---|---|---|
+| `XD_API_BASE` | variable | 实时后端地址，如 `https://xxx.app.workbuddy.host` |
+| `XD_SHARECODE` | variable | 后端所在平台网关的 sharecode |
+| `PAGES_REPO` | variable | 公开站点仓名，默认 `Jimeng5Xingchen/xiaodou-pages` |
+| `PAGES_DEPLOY_TOKEN` | secret | 有 `repo` 权限的 PAT，用于推送站点产物 |
+
+**前端取数优先级**：`?api=` 参数 > `config.js` 运行时配置 > 构建期注入 > 同源；
+实时 API 不可用时自动回退到 `data/codes.json` 静态快照，页面顶部显示「静态快照」提示条，
+此时登录 / 注册 / 提交等需要实时后端的功能会自动禁用。
+
+**子路径兼容**：所有静态资源均使用相对路径（`img/logo.png`、`css/tokens.css`），
+因此站点放在 `https://<user>.github.io/<repo>/` 子路径下也能正常加载。
+
+> 采集失败不会中断流水线：会沿用上一份快照继续发布，避免站点因外部源临时不可达而空白。
+
 > **不要把整个后端搬到 Pages。** Pages Functions 只跑 JS/TS，且没有 Cron Trigger、
 > 没有文件系统、没有线程池（Python Workers 也不行）；本项目的 `ThreadPoolExecutor`
 > （11 处）、后台调度线程、SQLite 文件存储都要重写，代价远大于收益。
