@@ -19,29 +19,20 @@ API="${1:-}"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-# 复制静态资源（index.html + css/ + js/）
+# 复制静态资源（index.html + css/ + js/ + img/）
 cp "$HERE/../static/index.html" "$OUT/index.html"
-mkdir -p "$OUT/css" "$OUT/js"
+mkdir -p "$OUT/css" "$OUT/js" "$OUT/img"
 cp "$HERE/../static/css/"*.css "$OUT/css/"
 cp "$HERE/../static/js/"*.js "$OUT/js/"
+cp "$HERE/../static/img/"*.png "$OUT/img/"
 
-# 静态页面：把后端地址注入 __XD_API_BASE__ 占位符
-# 用 python 做替换，避免 sed 对特殊字符（/ & 等）的转义问题
-API="$API" python3 - "$HERE/../static/index.html" "$OUT/index.html" <<'PY'
-import os, sys, json
-src, dst = sys.argv[1], sys.argv[2]
-api = os.environ.get("API", "").strip()
-html = open(src, encoding="utf-8").read()
-marker = "const __XD_API_BASE__ = '';"
-if marker not in html:
-    raise SystemExit("找不到 __XD_API_BASE__ 注入点，请检查 static/index.html 是否被改动")
-# 替换成后端地址字面量（JSON 转义保证安全）
-html = html.replace(marker, "const __XD_API_BASE__ = %s;" % json.dumps(api), 1)
-open(dst, "w", encoding="utf-8").write(html)
-print("注入后端地址:", api or "(同源)")
-PY
+# 静态页面：把后端地址注入 __XD_API_BASE__ / __XD_SHARECODE__ 占位符
+# 统一复用 scripts/build_pages.py（与 GitHub Pages 部署链同一套产物逻辑）
+SHARE="${2:-${XD_SHARECODE:-}}"
+API="$API" XD_SHARECODE="$SHARE" python3 "$HERE/../scripts/build_pages.py" \
+  --out "$OUT" --api "$API" --sharecode "$SHARE"
 
-# 安全响应头
+# Cloudflare Pages 的响应头（补充 build_pages.py 生成的通用安全头）
 cat > "$OUT/_headers" <<'EOF'
 /*
   X-Content-Type-Options: nosniff
@@ -53,6 +44,8 @@ cat > "$OUT/_headers" <<'EOF'
 /css/*
   Cache-Control: public, max-age=604800, immutable
 /js/*
+  Cache-Control: public, max-age=604800, immutable
+/img/*
   Cache-Control: public, max-age=604800, immutable
 EOF
 
