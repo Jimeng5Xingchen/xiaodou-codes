@@ -1,0 +1,101 @@
+/* ============================================================
+   tokens.css —— 设计令牌（颜色 / 形状 / 玻璃 / Material You）
+   由 ui.js 在运行时覆盖部分变量（--accent / --glass-* 等）
+   ============================================================ */
+:root{
+  color-scheme: dark;
+
+  /* ---- 基础色板（暗色为默认） ---- */
+  --bg-base:#0e1116;
+  --panel-base:#161b22;
+  --panel2-base:#1c232c;
+  --line-base:#2a323d;
+  --fg-base:#e6edf3;
+  --dim-base:#8b98a5;
+
+  --bg:var(--bg-base);
+  --panel:var(--panel-base);
+  --panel2:var(--panel2-base);
+  --line:var(--line-base);
+  --fg:var(--fg-base);
+  --dim:var(--dim-base);
+
+  --accent:#f0883e;      /* 主色（ui.js 可覆盖） */
+  --accent2:#58a6ff;     /* 次色 */
+  --ok:#3fb950; --warn:#d29922; --bad:#f85149; --unknown:#7d8590;
+
+  /* ---- Material You 动态色（ui.js 依据主题色派生） ---- */
+  --md-primary:#f0883e;
+  --md-on-primary:#1b1207;
+  --md-primary-container:#43260a;
+  --md-on-primary-container:#ffd9bd;
+  --md-secondary-container:#17334f;
+  --md-on-secondary-container:#cfe4ff;
+
+  /* ---- 形状系统（Material You 分级） ---- */
+  --r-xs:6px; --r-sm:9px; --r-md:12px; --r-lg:16px; --r-xl:22px; --r-2xl:28px;
+  --r-card:var(--r-lg);   /* 卡片 / 面板圆角 */
+  --r-ctl:var(--r-md);    /* 按钮 / 输入控件圆角 */
+  --r-pill:999px;
+
+  /* ---- 毛玻璃（玻璃拟态）---- */
+  --glass-alpha:72%;     /* 表面不透明度 0% ~ 100% */
+  --glass-blur:18px;      /* 背景模糊半径 */
+  --glass-sat:150%;       /* 饱和度增强 */
+  --glass-edge:45%;       /* 水晶边框高光强度 */
+  --glass-surface:color-mix(in srgb, var(--panel) var(--glass-alpha), transparent);
+  --glass-surface-2:color-mix(in srgb, var(--panel2) var(--glass-alpha), transparent);
+  --glass-ctl:color-mix(in srgb, var(--panel2) var(--glass-alpha), transparent);
+  --glass-edge-top:rgba(255,255,255,var(--glass-edge));
+  --glass-edge-bottom:rgba(255,255,255,calc(var(--glass-edge) * .18));
+  --glass-edge-dark:rgba(0,0,0,calc(var(--glass-edge) * .42));
+  --glass-shadow:0 10px 30px rgba(0,0,0,.26);
+
+  /* ---- 动效 ---- */
+  --motion:1;
+  --dur:.16s;
+  --ease:cubic-bezier(.2,.8,.3,1);
+}
+
+/* ---- 显式亮色主题 ---- */
+:root[data-theme="light"]{
+  --bg-base:#f6f7f9; --panel-base:#fff; --panel2-base:#f0f2f5; --line-base:#e2e6ea;
+  --fg-base:#1c1c1e; --dim-base:#5b6570;
+  --accent:#d2691e; --accent2:#0969da;
+  --ok:#1a7f37; --warn:#9a6700; --bad:#cf222e; --unknown:#6e7781;
+  --md-primary:#d2691e; --md-on-primary:#fff;
+  --md-primary-container:#ffe2c4; --md-on-primary-container:#4a2100;
+  --md-secondary-container:#d8ecff; --md-on-secondary-container:#003257;
+  --glass-edge-top:rgba(255,255,255,calc(var(--glass-edge) * 1.1));
+  --glass-edge-bottom:rgba(0,0,0,calc(var(--glass-edge) * .16));
+  --glass-shadow:0 10px 28px rgba(20,26,38,.14);
+}
+
+/* ---- 跟随系统（未显式指定 dark / light 时生效） ---- */
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]):not([data-theme="light"]){
+    --bg-base:#f6f7f9; --panel-base:#fff; --panel2-base:#f0f2f5; --line-base:#e2e6ea;
+    --fg-base:#1c1c1e; --dim-base:#5b6570;
+    --accent:#d2691e; --accent2:#0969da;
+    --ok:#1a7f37; --warn:#9a6700; --bad:#cf222e; --unknown:#6e7781;
+    --md-primary:#d2691e; --md-on-primary:#fff;
+    --md-primary-container:#ffe2c4; --md-on-primary-container:#4a2100;
+    --md-secondary-container:#d8ecff; --md-on-secondary-container:#003257;
+    --glass-edge-top:rgba(255,255,255,calc(var(--glass-edge) * 1.1));
+    --glass-edge-bottom:rgba(0,0,0,calc(var(--glass-edge) * .16));
+    --glass-shadow:0 10px 28px rgba(20,26,38,.14);
+  }
+}
+
+/* ---- Material You：壁纸取色调（由主题色派生） ---- */
+html[data-md="on"]{
+  --panel:color-mix(in srgb, var(--md-primary) 7%, var(--panel-base));
+  --panel2:color-mix(in srgb, var(--md-primary) 13%, var(--panel2-base));
+  --line:color-mix(in srgb, var(--md-primary) 16%, var(--line-base));
+}
+
+/* ---- 胶囊形状（Android 11 药丸 / 圆润超椭圆观感） ---- */
+html[data-capsule="on"]{
+  --r-card:28px;
+  --r-ctl:999px;
+}

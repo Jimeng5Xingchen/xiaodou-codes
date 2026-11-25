@@ -1,0 +1,180 @@
+/* ============================================================
+   glass.css —— 毛玻璃 / 半透明水晶胶囊材质层
+   启用条件：<html data-glass="on">
+   相关变量（由 ui.js 控制）：
+     --glass-alpha  表面不透明度 0% ~ 100%
+     --glass-blur   背景模糊半径
+     --glass-sat    饱和度增强
+     --glass-edge   水晶高光强度
+
+   注意：本文件统一用 :where() 包裹选择器，保证特异性恒为 (0,1,1)，
+   这样 material.css / base.css 里的常规规则仍可按需覆盖，
+   不会出现"基础规则反过来盖掉材质层"的情况。
+   ============================================================ */
+
+/* ---- 背景光晕：为毛玻璃提供可折射的彩色底层 ---- */
+.bg-aurora{
+  position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;
+  background:
+    radial-gradient(58% 42% at 10% 6%,
+      color-mix(in srgb,var(--accent) 34%,transparent) 0%, transparent 68%),
+    radial-gradient(46% 38% at 90% 10%,
+      color-mix(in srgb,var(--accent2) 28%,transparent) 0%, transparent 70%),
+    radial-gradient(52% 46% at 72% 92%,
+      color-mix(in srgb,var(--accent) 20%,transparent) 0%, transparent 68%),
+    radial-gradient(40% 34% at 26% 86%,
+      color-mix(in srgb,var(--accent2) 18%,transparent) 0%, transparent 72%);
+  filter:blur(70px) saturate(125%);
+  opacity:.85;
+  transition:opacity .35s ease;
+}
+html[data-glass="off"] .bg-aurora{opacity:.26;filter:blur(90px) saturate(105%)}
+html[data-motion="off"] .bg-aurora::after{animation:none}
+.bg-aurora::after{
+  /* 缓慢漂移的光斑，模拟动态壁纸 */
+  content:"";position:absolute;inset:-20%;
+  background:radial-gradient(35% 30% at 30% 40%,
+    color-mix(in srgb,var(--accent2) 26%,transparent) 0%, transparent 70%);
+  animation:auroraDrift 26s ease-in-out infinite alternate;
+}
+@keyframes auroraDrift{
+  0%{transform:translate3d(-3%,-2%,0) scale(1)}
+  100%{transform:translate3d(4%,3%,0) scale(1.12)}
+}
+
+/* ---- 玻璃表面通用变量 ---- */
+:root{
+  --glass-line:color-mix(in srgb,var(--fg) 15%,transparent);
+  --glass-line-soft:color-mix(in srgb,var(--fg) 9%,transparent);
+  --glass-shadow:0 8px 28px rgba(0,0,0,.22);
+  --glass-shadow-lg:0 18px 48px rgba(0,0,0,.34);
+}
+
+/* ---- 主体面板：毛玻璃 ---- */
+html[data-glass="on"] :where(.stat,.item,.ccard,.panelbox,.submitbox,.fold,.hit,.tag,.sharer,.badge){
+  background:var(--glass-surface);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
+  border-color:var(--glass-line-soft);
+  box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge-top);
+}
+/* 卡片悬浮时更通透一点，做出"玻璃有厚度"的错觉 */
+html[data-glass="on"] :where(.item,.ccard,.stat):hover{
+  -webkit-backdrop-filter:blur(calc(var(--glass-blur) + 4px)) saturate(var(--glass-sat));
+  backdrop-filter:blur(calc(var(--glass-blur) + 4px)) saturate(var(--glass-sat));
+  box-shadow:0 12px 34px rgba(0,0,0,.26), inset 0 1px 0 var(--glass-edge-top);
+}
+/* 今日推荐：保留强调色渐变，只是变为半透明 */
+html[data-glass="on"] .reco{
+  background:linear-gradient(135deg,
+    color-mix(in srgb,var(--accent) 22%,transparent),
+    color-mix(in srgb,var(--panel) var(--glass-alpha),transparent));
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
+  border-color:color-mix(in srgb,var(--accent) 40%,transparent);
+  box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge-top);
+}
+
+/* ---- 控件玻璃（按钮 / 输入 / 导航） ---- */
+html[data-glass="on"] :where(button,.btn,.nav-tab,.seg,.search,.sinput,select.sort,.theme-btn,.mini,.fold-more){
+  background:var(--glass-ctl);
+  -webkit-backdrop-filter:blur(calc(var(--glass-blur) * .7)) saturate(var(--glass-sat));
+  backdrop-filter:blur(calc(var(--glass-blur) * .7)) saturate(var(--glass-sat));
+  border-color:var(--glass-line);
+  box-shadow:inset 0 1px 0 var(--glass-edge-top);
+}
+html[data-glass="on"] :where(.search,.sinput,.modal input,.panelbox input){
+  background:color-mix(in srgb,var(--bg) 42%,transparent);
+}
+/* 选中态：保持实色渐变，避免文字对比度不足 */
+html[data-glass="on"]:not([data-md="on"]) :where(button,.btn,.nav-tab,.gender-row button).on,
+html[data-glass="on"]:not([data-md="on"]) :where(button,.btn).primary{
+  background:linear-gradient(135deg,
+    color-mix(in srgb,var(--accent) 96%,#fff 4%),
+    color-mix(in srgb,var(--accent) 84%,#000 16%));
+  border-color:color-mix(in srgb,var(--accent) 70%,#fff 30%);
+  box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 34%,transparent),
+             inset 0 1px 0 rgba(255,255,255,.34);
+  color:#fff;
+}
+
+/* ---- 浮层玻璃（弹窗 / 面板 / 导航条 / 提示） ---- */
+html[data-glass="on"] :where(.modal,.detail-modal,.theme-pop,.toast){
+  background:color-mix(in srgb,var(--panel) calc(var(--glass-alpha) + 8%),transparent);
+  -webkit-backdrop-filter:blur(calc(var(--glass-blur) + 6px)) saturate(var(--glass-sat));
+  backdrop-filter:blur(calc(var(--glass-blur) + 6px)) saturate(var(--glass-sat));
+  border-color:var(--glass-line);
+  box-shadow:var(--glass-shadow-lg), inset 0 1px 0 var(--glass-edge-top);
+}
+html[data-glass="on"] .nav{
+  background:color-mix(in srgb,var(--bg) calc(var(--glass-alpha) - 14%),transparent);
+  -webkit-backdrop-filter:blur(calc(var(--glass-blur) + 4px)) saturate(var(--glass-sat));
+  backdrop-filter:blur(calc(var(--glass-blur) + 4px)) saturate(var(--glass-sat));
+  border-bottom-color:var(--glass-line-soft);
+}
+html[data-glass="on"] .toast{
+  background:var(--fg);
+  color:var(--bg);
+  -webkit-backdrop-filter:blur(16px);
+  backdrop-filter:blur(16px);
+}
+html[data-glass="on"] :where(.detail-mask,.mask){
+  background:color-mix(in srgb,var(--bg) 42%,rgba(0,0,0,.55));
+  -webkit-backdrop-filter:blur(6px);
+  backdrop-filter:blur(6px);
+}
+
+/* ---- 水晶描边：顶部亮、底部暗，模拟玻璃切面 ---- */
+html[data-glass="on"] :where(.panelbox,.modal,.detail-modal,.theme-pop,.reco){
+  position:relative;
+}
+html[data-glass="on"] :where(.panelbox,.modal,.detail-modal,.theme-pop,.reco)::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(160deg,
+    var(--glass-edge-top) 0%,
+    transparent 34%,
+    transparent 68%,
+    var(--glass-edge-bottom) 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask-composite:exclude;
+  padding:1px;
+  opacity:.9;
+}
+
+/* ---- 胶囊形状：Android 11 药丸轮廓 ---- */
+html[data-capsule="on"] :where(button,.btn,.nav-tab,.seg,.theme-btn,.tag,.badge,.sharer,.hit-label,.mini,.fold-more,.toast){
+  border-radius:999px;
+}
+html[data-capsule="on"] :where(.item,.stat,.ccard,.panelbox,.submitbox,.fold,.hit,.modal,.detail-modal,.theme-pop,.reco,.seg,.devcode){
+  border-radius:28px;
+}
+html[data-capsule="on"] .code{border-radius:999px;padding:6px 14px}
+html[data-capsule="on"] .avatar{border-radius:50%}
+
+/* ---- 降级：不支持 backdrop-filter 时用更高不透明度模拟 ---- */
+@supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
+  html[data-glass="on"] :where(.stat,.item,.reco,.ccard,.panelbox,.submitbox,.fold,.hit){
+    background:color-mix(in srgb,var(--panel) 96%,transparent);
+  }
+  html[data-glass="on"] :where(.modal,.detail-modal,.theme-pop){
+    background:color-mix(in srgb,var(--panel) 99%,transparent);
+  }
+}
+/* 低性能设备（prefers-reduced-transparency）直接关闭模糊 */
+@media (prefers-reduced-transparency:reduce){
+  html[data-glass="on"] :where(.stat,.item,.reco,.ccard,.panelbox,.submitbox,.fold,.hit,
+    .modal,.detail-modal,.theme-pop,.nav,button,.btn,.nav-tab,.search,.sinput,select.sort){
+    -webkit-backdrop-filter:none;backdrop-filter:none;
+  }
+  html[data-glass="on"] :where(.stat,.item,.reco,.ccard,.panelbox,.submitbox,.fold,.hit){
+    background:color-mix(in srgb,var(--panel) 97%,transparent);
+  }
+}
+/* 高对比度偏好：加强描边 */
+@media (prefers-contrast:more){
+  html[data-glass="on"] :where(.stat,.item,.panelbox,.modal,.detail-modal,.theme-pop){
+    border-color:color-mix(in srgb,var(--fg) 40%,transparent);
+  }
+}

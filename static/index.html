@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>小豆邀请码抓码站</title>
+<meta name="description" content="聚合 B 站与社区公开分享的小豆（豆包旗下 AI 个人助理）邀请码，并用豆包官方接口校验有效性。">
+<!-- 样式已拆分：tokens(设计令牌) / base(布局组件) / glass(毛玻璃胶囊) / material(安卓11风格) / ui-panel(外观控制组件) / responsive(响应式) -->
+<!--
+  线上平台网关要求每个请求（含 CSS / JS 静态资源）都带 sharecode 参数。
+  这里用一个同步引导脚本读取当前地址的 sharecode，再动态注入带参数的 <link>，
+  保证样式在首屏立即生效（不会闪白），同时兼容不带 sharecode 的本地 / 自建部署。
+-->
+<script>
+(function(){
+  var sc='';
+  try{ sc=new URLSearchParams(location.search).get('sharecode')||''; }catch(e){}
+  var ASSETS=[
+    ['css','text/css','tokens.css'],['css','text/css','base.css'],['css','text/css','glass.css'],
+    ['css','text/css','material.css'],['css','text/css','ui-panel.css'],['css','text/css','responsive.css']
+  ];
+  for(var i=0;i<ASSETS.length;i++){
+    var dir=ASSETS[i][0],type=ASSETS[i][1],file=ASSETS[i][2];
+    var link=document.createElement('link');
+    link.rel='stylesheet'; link.type=type;
+    link.href='/'+dir+'/'+file+(sc?('?sharecode='+encodeURIComponent(sc)):'');
+    document.head.appendChild(link);
+  }
+  // 供后面的 ui-control.js 复用
+  window.__XD_SHARECODE__=sc;
+})();
+</script>
+</head>
+<body>
+<div class="bg-aurora" aria-hidden="true"></div>
+<div class="wrap">
+  <header style="position:relative">
+    <div class="h1row">
+      <h1 style="margin:0">小豆邀请码<span class="dot">抓码站</span></h1>
+      <button class="theme-btn" id="themeBtn" title="外观设置" aria-haspopup="true" aria-expanded="false">
+        <span class="swatch"></span><span id="themeLabel">外观</span>
+      </button>
+    </div>
+    <div class="theme-pop" id="themePop" role="dialog" aria-label="外观设置">
+      <div class="tp-row">
+        <p class="tp-label">外观主题</p>
+        <div class="seg" id="themeSeg">
+          <button data-t="system">跟随系统</button>
+          <button data-t="dark">暗黑</button>
+          <button data-t="light">亮色</button>
+        </div>
+        <p class="tp-hint">「跟随系统」会随系统的浅色 / 深色模式自动切换。</p>
+      </div>
+      <div class="tp-row">
+        <p class="tp-label">外观颜色</p>
+        <div class="swatches" id="swatches"></div>
+        <div class="color-custom">
+          <input type="color" id="accentPick" title="自定义主题色">
+          <button id="accentReset" class="mini">恢复默认</button>
+        </div>
+        <p class="tp-hint">主题色用于按钮、链接与高亮；选择后保存在本机浏览器。</p>
+      </div>
+
+      <!-- ===== 材质与形状 ===== -->
+      <div class="tp-sep"></div>
+      <div class="tp-row">
+        <p class="tp-label">材质与形状</p>
+        <label class="tp-switch">
+          <input type="checkbox" id="glassSwitch" checked>
+          <span class="tp-switch-box"><span class="tp-switch-knob"></span></span>
+          <span class="tp-switch-text">
+            <b>毛玻璃水晶效果</b>
+            <i>半透明 + 背景模糊 + 水晶切面描边</i>
+          </span>
+        </label>
+        <label class="tp-switch">
+          <input type="checkbox" id="capsuleSwitch">
+          <span class="tp-switch-box"><span class="tp-switch-knob"></span></span>
+          <span class="tp-switch-text">
+            <b>胶囊形状</b>
+            <i>按钮与卡片转为安卓 11 药丸轮廓</i>
+          </span>
+        </label>
+        <label class="tp-switch">
+          <input type="checkbox" id="mdSwitch">
+          <span class="tp-switch-box"><span class="tp-switch-knob"></span></span>
+          <span class="tp-switch-text">
+            <b>安卓 11 风格</b>
+            <i>Material You 动态取色、超椭圆、点击涟漪</i>
+          </span>
+        </label>
+        <label class="tp-switch">
+          <input type="checkbox" id="motionSwitch" checked>
+          <span class="tp-switch-box"><span class="tp-switch-knob"></span></span>
+          <span class="tp-switch-text">
+            <b>动效</b>
+            <i>光晕漂移与点击反馈</i>
+          </span>
+        </label>
+      </div>
+
+      <!-- ===== 毛玻璃微调 ===== -->
+      <div class="tp-row" id="glassBlock">
+        <p class="tp-label">玻璃微调</p>
+        <div class="tp-range">
+          <span class="tp-range-name">表面透明度</span>
+          <input type="range" id="glassAlpha" min="0" max="100" step="1" value="72">
+          <span class="tp-range-val" id="glassAlphaVal">72%</span>
+        </div>
+        <div class="tp-range">
+          <span class="tp-range-name">背景模糊</span>
+          <input type="range" id="glassBlur" min="0" max="40" step="1" value="18">
+          <span class="tp-range-val" id="glassBlurVal">18px</span>
+        </div>
+        <div class="tp-range">
+          <span class="tp-range-name">水晶高光</span>
+          <input type="range" id="glassEdge" min="0" max="100" step="1" value="45">
+          <span class="tp-range-val" id="glassEdgeVal">45%</span>
+        </div>
+        <div class="tp-ops">
+          <button id="glassPreset" class="mini">推荐参数</button>
+          <button id="glassOff" class="mini">纯色模式</button>
+          <button id="uiReset" class="mini">全部重置</button>
+        </div>
+        <p class="tp-hint">透明度越低越通透、越接近纯色；模糊越大越有磨砂感。所有设置保存在本机浏览器。</p>
+      </div>
+    </div>
+  </header>
+
+  <nav class="nav" id="nav">
+    <button class="nav-tab on" data-page="codes">邀请码</button>
+    <button class="nav-tab" data-page="community">社区找码</button>
+    <button class="nav-tab" data-page="submit">提交邀请码</button>
+    <button class="nav-tab" data-page="account">我的账号</button>
+    <button class="nav-tab" data-page="about">使用说明</button>
+  </nav>
+
+  <!-- 邀请码 -->
+  <section class="page" id="page-codes">
+  <div class="banner">
+    <b>提示</b>　邀请码通常只能使用一次，且每个账号每天仅能验证 10 次左右（超出进入冷却）。
+    请优先使用标注「官方校验有效」的码；本工具不保证任何码可用，激活与否以小豆 App 实际提示为准。
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <!-- 今日码池推荐 -->
+  <div class="reco" id="reco">
+    <div class="reco-h"><h3>今日码池推荐</h3><span class="rflag" id="recoFlag"></span></div>
+    <div id="recoBody"><div class="reco-empty">加载中…</div></div>
+  </div>
+
+  <div class="catbar">
+    <div class="filters">
+      <button class="on" data-cat="all">全部分类</button>
+      <button data-cat="site">站内分享</button>
+      <button data-cat="external">站外分享</button>
+      <button data-cat="auto">自动采集</button>
+    </div>
+  </div>
+
+  <div class="bar">
+    <div class="filters">
+      <button class="on" data-filter="all">全部状态</button>
+      <button data-filter="available">官方校验有效</button>
+      <button data-filter="unknown">待确认</button>
+      <button data-filter="used">社区反馈已用</button>
+      <button data-filter="expired">已过期</button>
+    </div>
+    <input class="search" id="q" placeholder="搜索邀请码 / 来源 / 作者…">
+    <select class="sort" id="sort" title="排序方式">
+      <option value="default">默认排序</option>
+      <option value="newest">最新发布</option>
+      <option value="oldest">最早发布</option>
+      <option value="expire">即将过期优先</option>
+      <option value="hits">多源命中优先</option>
+    </select>
+    <span class="spacer"></span>
+    <button id="reload">刷新</button>
+  </div>
+
+  <p class="meta">
+    <span><span class="dot-live"></span>数据更新：<span id="upd">加载中…</span></span>
+    <span>每 25 秒自动抓取并刷新</span>
+    <span id="cnt"></span>
+  </p>
+
+  <div class="list" id="list"><div class="empty">正在载入…</div></div>
+  </section>
+
+  <!-- 社区找码 -->
+  <section class="page" id="page-community" hidden>
+  <section class="community">
+    <h2>去社区找码 / 分享</h2>
+    <p class="ctip">这些平台多需登录，站内无法直接抓取其评论。点击下方一键前往对应平台搜索最新分享——
+      找到新码后，用下方的「提交邀请码」或抓取书签送回本站校验收录。</p>
+    <div class="cgrid" id="cgrid"></div>
+  </section>
+  </section>
+
+  <!-- 提交邀请码 -->
+  <section class="page" id="page-submit" hidden>
+  <section class="submitbox">
+    <h3>提交邀请码</h3>
+    <p class="stip">选择分享类型后提交。本站逐个调用豆包官方接口校验，<b>只有真实有效的码才会收录</b>。</p>
+    <div class="smodes">
+      <button class="on" data-smode="site">站内共享码<small>仅填邀请码，展示为你分享，需登录</small></button>
+      <button data-smode="external">站外分享码<small>可填分享链接，自动识别来源</small></button>
+    </div>
+    <p class="stip" id="smodeTip">站内共享需要先登录，登录后你的邀请码会展示在码池里并标注分享者。</p>
+    <div class="srow">
+      <input class="sinput" id="scode" placeholder="粘贴邀请码，多个用空格/逗号分隔">
+      <button id="ssubmit">校验并提交</button>
+    </div>
+    <div class="srow" style="margin-top:8px">
+      <a class="btn bm" id="bmlink" href="#" title="把它拖到浏览器书签栏，在已登录的社区页面点击使用">📌 抓取书签（拖到书签栏）</a>
+    </div>
+    <div class="smsg" id="smsg"></div>
+    <details class="bmhelp">
+      <summary>抓取书签怎么用？</summary>
+      <ol>
+        <li>按住上方「📌 抓取书签」链接，拖到浏览器书签栏（没显示书签栏按 Ctrl+Shift+B）。</li>
+        <li>在你<b>自己已登录</b>的微博/知乎/贴吧/小红书等搜索结果页，点击这个书签。</li>
+        <li>书签会从当前页面文字里提取候选码，自动跳转到本站提交，官方校验后收录。</li>
+        <li>整个过程只读取页面公开文字，不上传你的 Cookie、密码或任何登录凭证。</li>
+      </ol>
+    </details>
+  </section>
+  </section>
+
+  <!-- 我的账号 -->
+  <section class="page" id="page-account" hidden>
+    <div class="panelbox" id="accountGuest">
+      <h2>我的账号</h2>
+      <p class="mtip">登录后，你分享的邀请码会展示你的用户名，还能编辑个人资料、更换邮箱。</p>
+      <button id="guestLoginBtn" style="margin-top:8px">登录 / 注册</button>
+    </div>
+
+    <div class="panelbox" id="accountPanel" hidden style="margin-bottom:14px">
+      <h2>个人资料</h2>
+      <div class="prof-head">
+        <div class="avatar" id="profAvatar">?</div>
+        <div class="prof-id">
+          <div class="prof-name" id="profName">—</div>
+          <div class="prof-mail" id="profMail">—</div>
+        </div>
+      </div>
+      <label for="pfUsername">用户名</label>
+      <input id="pfUsername" maxlength="20" placeholder="展示给其他用户的昵称">
+      <label for="pfBio">简介</label>
+      <input id="pfBio" maxlength="100" placeholder="一句话介绍自己（选填）">
+      <label>性别</label>
+      <div class="gender-row" id="genderRow">
+        <button type="button" data-g="" class="on">保密</button>
+        <button type="button" data-g="male">男</button>
+        <button type="button" data-g="female">女</button>
+        <button type="button" data-g="other">其他</button>
+      </div>
+      <button id="saveProfileBtn" class="primary" style="margin-top:14px">保存资料</button>
+      <div class="mmsg" id="profMsg"></div>
+
+      <div class="divider"></div>
+      <h3 style="font-size:14px;margin:0 0 8px">更换邮箱</h3>
+      <p class="mtip" style="margin:0 0 10px">当前邮箱：<span id="curMail">—</span>。更换需验证新邮箱，资料与分享记录会保留。</p>
+      <div class="mrow">
+        <input type="email" id="newMail" placeholder="新邮箱地址">
+        <button id="mailSendBtn" style="white-space:nowrap">获取验证码</button>
+      </div>
+      <input id="mailCode" placeholder="新邮箱收到的 6 位验证码" inputmode="numeric" maxlength="6" style="margin-top:8px">
+      <button id="mailConfirmBtn" style="margin-top:8px">确认更换</button>
+      <div class="mmsg" id="mailMsg"></div>
+
+      <div class="divider"></div>
+      <h3 style="font-size:14px;margin:0 0 8px">登录密码 <span id="pwdStatus" class="badge small" style="color:var(--dim)">未设置</span></h3>
+      <p class="mtip" style="margin:0 0 10px">设置后可用「密码登录」；忘记密码可在登录框里用绑定邮箱找回。</p>
+      <input type="password" id="setPwd" placeholder="新密码（6-32 位）" maxlength="32">
+      <button id="setPwdBtn" style="margin-top:8px">设置 / 修改密码</button>
+      <div class="mmsg" id="pwdMsg"></div>
+
+      <div class="divider"></div>
+      <div class="fold" id="myShareFold">
+        <div class="fold-h" id="myShareHead"><span class="caret">▶</span>
+          <span>我分享的邀请码</span><span id="myShareCount" class="badge">0</span>
+        </div>
+        <div class="fold-b" id="myShares"><div class="acc-empty">暂无分享，去「提交邀请码」分享你找到的码吧。</div></div>
+      </div>
+
+      <button id="logoutBtn" style="margin-top:16px">退出登录</button>
+    </div>
+  </section>
+
+  <!-- 使用说明 -->
+  <section class="page" id="page-about" hidden>
+    <div class="panelbox">
+      <h2>使用说明</h2>
+      <div class="about-text">
+        <p><b>本站简介</b>　聚合 B 站、豆瓣小组、微博、知乎、贴吧、微信公众号、小红书、抖音等社区公开分享的小豆（豆包旗下 AI 个人助理）邀请码，
+          并调用豆包官方接口校验每个码是否真实有效。豆瓣小组讨论与评论区会自动抓取，抓到的码同样经官方接口前置校验。</p>
+        <p><b>邀请码分类</b>　码池按来源分为「站内分享」「站外分享」「自动采集」三类，可用分类栏筛选；站内分享码不显示来源，只展示分享者。
+          按「排序」可切换默认 / 最新 / 最早 / 即将过期 / 多源命中。列表每 25 秒自动刷新一次。</p>
+        <p><b>今日码池推荐</b>　从今天新收录的可用码里推荐一个，点「更换一下」看下一个，点「已使用」会把它标记掉并换一个。</p>
+        <p><b>多源命中 / 回复评论</b>　同一个码被多个来源命中时，会显示「N 源命中」；点击它可查看分别命中了哪些来源、逐条直达原文，
+          并展开每个来源下的回复 / 评论内容。</p>
+        <p><b>提交邀请码</b>　站内共享码：仅填邀请码、需登录，展示为你分享；站外分享码：可填邀请码或分享链接，自动识别链接来源，别人可一键直达原文。</p>
+        <p><b>关于</b>　本站为个人自用的临时工具，聚合的均为公开可见内容，与豆包 / 字节跳动无任何关联。</p>
+        <p><b>状态说明</b>　「官方校验有效」= 豆包官方邀请页接口返回该码存在且未过期；「待确认」= 社区标注可能可用但官方接口未识别；
+        「社区反馈已用」= 社区反馈已被使用；「已过期」= 官方接口显示已过期。</p>
+        <p><b>社区来源</b>　豆瓣小组讨论 / 评论、B 站搜索 / 评论可直接站内抓取；微博 / 知乎 / 贴吧 / 微信公众号 / 小红书 / 抖音多需登录，
+          站内仅抓取其公开可见内容并以官方接口校验；抓不到的用「社区找码」直达入口前往查看。豆瓣有访问频率限制，站内以缓存方式低频抓取。</p>
+        <p><b>外观设置</b>　标题右侧的按钮可打开外观设置：外观主题支持「跟随系统 / 暗黑 / 亮色」，跟随系统会随你的系统浅色深色模式自动切换；
+          外观颜色提供 7 个预设色与自定义取色器，设置保存在本机浏览器。</p>
+        <p><b>材质与形状</b>　「毛玻璃水晶效果」可开关，启用后卡片、按钮、弹窗变为半透明磨砂质感并带水晶切面描边；
+          「玻璃微调」里可调表面透明度（0%~100%）、背景模糊（0~40px）与水晶高光强度。
+          「胶囊形状」把按钮与卡片转为安卓 11 的药丸轮廓；「安卓 11 风格」开启 Material You 动态取色、超椭圆圆角与点击涟漪；
+          「动效」控制光晕漂移与点击反馈。全部设置保存在本机浏览器，PC / 手机端各自适配。</p>
+        <p><b>我分享的邀请码</b>　「我的账号」页下方可折叠查看你分享的邀请码，默认只显示前 20 个（表格形式，含状态、来源、时间），
+          点开可展开全部；点击码即可复制。</p>
+        <p><b>隐私</b>　本站不收集任何账号 Cookie / 登录凭证。抓取书签只读取你自己浏览器里当前页面的公开文字。</p>
+        <p><b>部署</b>　前端可独立托管到 Cloudflare Pages（静态资源全球 CDN、流量免费无限），
+          后端仍跑在本服务上：<code>?api=https://后端地址</code> 可临时切换后端。
+          前端托管在 Pages 时跨域调用，后端已放行 CORS 与登录态自定义头。</p>
+        <p><b>免责</b>　邀请码使用规则以小豆 App 页面为准。本站不提供任何付费码、账号或代激活服务。</p>
+        <span id="err"></span>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<div class="mask" id="authMask">
+  <div class="modal">
+    <button class="mclose" id="authClose">×</button>
+
+    <!-- 视图1：登录 / 注册 -->
+    <div id="authViewLogin">
+      <h3>登录 / 注册</h3>
+      <div class="tabs" id="authTabs">
+        <button type="button" class="on" data-mode="code">验证码登录</button>
+        <button type="button" data-mode="password">密码登录</button>
+      </div>
+      <label for="authEmail">邮箱地址</label>
+      <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email">
+
+      <!-- 验证码模式 -->
+      <div id="codeMode">
+        <div class="mrow" style="margin-top:10px">
+          <input id="authCode" placeholder="6 位验证码" inputmode="numeric" maxlength="6">
+          <button id="sendCodeBtn" style="white-space:nowrap">获取验证码</button>
+        </div>
+        <div class="devcode" id="devCodeBox">当前为演示模式，验证码：<b id="devCodeText"></b>（点下方登录自动填入）</div>
+      </div>
+
+      <!-- 密码模式 -->
+      <div id="passwordMode" hidden>
+        <label for="authPassword">密码</label>
+        <input type="password" id="authPassword" placeholder="输入密码（未设置请用验证码登录）" autocomplete="current-password">
+        <div class="linkline"><button type="button" class="linkbtn" id="forgotBtn">忘记密码？</button></div>
+      </div>
+
+      <div class="mact">
+        <button id="authLogin">登录 / 注册</button>
+      </div>
+      <div class="mmsg" id="authMsg"></div>
+    </div>
+
+    <!-- 视图2：忘记密码 -->
+    <div id="authViewReset" hidden>
+      <h3>找回密码</h3>
+      <p class="mtip">填写账号绑定的邮箱，我们会发送重置验证码。验证通过后设置新密码。</p>
+      <label for="resetEmail">绑定邮箱</label>
+      <div class="mrow">
+        <input type="email" id="resetEmail" placeholder="you@example.com">
+        <button id="resetSendBtn" style="white-space:nowrap">获取验证码</button>
+      </div>
+      <label for="resetCode">验证码</label>
+      <input id="resetCode" placeholder="6 位验证码" inputmode="numeric" maxlength="6">
+      <label for="resetPwd">新密码</label>
+      <input type="password" id="resetPwd" placeholder="6-32 位新密码" maxlength="32">
+      <div class="devcode" id="resetDevBox">当前为演示模式，验证码：<b id="resetDevText"></b></div>
+      <div class="mact">
+        <button id="resetConfirmBtn">重置密码</button>
+        <button type="button" id="resetBackBtn">返回登录</button>
+      </div>
+      <div class="mmsg" id="resetMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 命中来源 / 回复详情弹窗 -->
+<div class="detail-mask" id="detailMask">
+  <div class="detail-modal">
+    <div class="detail-head">
+      <span class="dc" id="detailCode">——</span>
+      <button class="mclose" id="detailClose">×</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+  </div>
+</div>
+
+<!-- UI 控制组件：外观 / 主题 / 毛玻璃 / 胶囊 / 安卓11风格（独立模块） -->
+<script>
+(function(){
+  // 线上网关要求静态资源也带 sharecode；本地 / 自建部署不带即可
+  var sc=(typeof window.__XD_SHARECODE__==='string')?window.__XD_SHARECODE__:'';
+  var s=document.createElement('script');
+  s.src='/js/ui-control.js'+(sc?('?sharecode='+encodeURIComponent(sc)):'');
+  s.async=false;               // 保证在业务脚本前执行
+  document.head.appendChild(s);
+})();
+</script>
+<script>
+const $ = s => document.querySelector(s);
+// 线上平台网关要求每个请求带 sharecode；从当前地址提取并附加到所有 API 请求
+const SHARECODE = (()=>{ try{ return new URLSearchParams(location.search).get('sharecode')||''; }catch(e){ return ''; } })();
+// API 基址：可把前端独立托管到 Cloudflare Pages，用 ?api=https://后端域名 指定后端。
+// 缺省走同源（相对路径），与现有部署完全一致。
+// 优先级：URL 参数 > 构建时注入的 __XD_API_BASE__（Cloudflare Pages 部署产物）> 同源。
+// 注意：构建时由 cf-pages/build.sh 把下面这行的空串替换成后端地址。
+const __XD_API_BASE__ = '';
+const API_BASE = (()=>{
+  try{
+    const q = new URLSearchParams(location.search).get('api');
+    if(q) return q.replace(/\/+$/,'');
+  }catch(e){}
+  try{
+    if(__XD_API_BASE__) return String(__XD_API_BASE__).replace(/\/+$/,'');
+  }catch(e){}
+  return '';
+})();
+function apiUrl(path){
+  // 跨域时后端不是平台网关，不需要 sharecode
+  if(API_BASE) return API_BASE + path;
+  if(!SHARECODE) return path;
+  return path + (path.includes('?')?'&':'?') + 'sharecode=' + encodeURIComponent(SHARECODE);
+}
+async function apiFetch(path, opts){
+  opts = opts || {};
+  // 平台网关会覆盖 Authorization 头，用自定义头传登录 token（后端 _token_from 优先读它）
+  if(TOKEN){
+    opts.headers = opts.headers || {};
+    if(typeof opts.headers.set === 'function') opts.headers.set('X-User-Token', TOKEN);
+    else opts.headers['X-User-Token'] = TOKEN;
+  }
+  const r = await fetch(apiUrl(path), opts);
+  // token 可能因资料/邮箱/密码更新而重新签发，统一更新本地
+  try{
+    const clone = r.clone();
+    const j = await clone.json();
+    if(j && j.token){ TOKEN=j.token; try{ localStorage.setItem('xd_token',TOKEN); }catch(e){} }
+  }catch(e){}
+  return r;
+}
+let DATA = {codes:[],counts:{}}, filter='all', q='', cat='all', sortBy='default';
+let myShareAll=false;   // 我分享的邀请码：是否展开全部
+let TOKEN = localStorage.getItem('xd_token') || '';
+let ME = null;
+const TRIED='xd_tried_codes_v1';
+let tried=new Set();
+try{ tried=new Set(JSON.parse(localStorage.getItem(TRIED)||'[]')); }catch(e){}
+const saveTried=()=>{ try{ localStorage.setItem(TRIED,JSON.stringify([...tried])); }catch(e){} };
+
+function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),1500); }
+
+// ---- 导航栏 ----
+function switchPage(name){
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('on', b.dataset.page===name));
+  document.querySelectorAll('.page').forEach(p=>p.hidden = (p.id!=='page-'+name));
+  try{ location.hash = name==='codes' ? '' : name; }catch(e){}
+  try{ localStorage.setItem('xd_page', name); }catch(e){}
+  if(name==='account') renderAccount();
+}
+document.querySelectorAll('.nav-tab').forEach(b=>b.onclick=()=>switchPage(b.dataset.page));
+
+async function copyCode(code,el){
+  try{ await navigator.clipboard.writeText(code); }
+  catch(e){
+    const ta=document.createElement('textarea'); ta.value=code; ta.style.position='fixed';
+    ta.style.opacity='0'; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(_){}
+    document.body.removeChild(ta);
+  }
+  if(el){ el.classList.add('copied'); setTimeout(()=>el.classList.remove('copied'),900); }
+  toast('已复制 '+code);
+}
+
+function fmtAge(ts){
+  if(!ts) return '';
+  const d=(Date.now()-ts)/1000;
+  if(d<60) return '刚刚';
+  if(d<3600) return Math.floor(d/60)+' 分钟前';
+  if(d<86400) return Math.floor(d/3600)+' 小时前';
+  return Math.floor(d/86400)+' 天前';
+}
+
+function statusText(s){
+  return {available:'官方校验有效',unknown:'待确认',used:'社区反馈已用',expired:'已过期'}[s]||'待确认';
+}
+
+const CARD_CLASS={wechat:'c-wx',weibo:'c-wb',zhihu:'c-zh',tieba:'c-tb',xiaohongshu:'c-xhs',douyin:'c-dy',douban:'c-db'};
+function renderCommunity(){
+  const links=DATA.communityLinks||[];
+  if(!links.length) return;
+  $('#cgrid').innerHTML=links.map(l=>
+    `<a class="ccard ${CARD_CLASS[l.key]||''}" href="${l.url}" target="_blank" rel="noopener">
+       <span class="cname">${l.name}</span><span class="cgo">搜索最新分享 →</span>
+     </a>`).join('');
+}
+
+function renderStats(){
+  const c=DATA.counts||{};
+  const box=$('#stats');
+  const items=[
+    ['total','总收录',''],['available','官方校验有效','ok'],
+    ['unknown','待确认','unknown'],['used','社区反馈已用','used'],['expired','已过期','expired']
+  ];
+  box.innerHTML=items.map(([k,l,cls])=>
+    `<div class="stat ${cls}"><div class="n">${c[k]||0}</div><div class="l">${l}</div></div>`).join('');
+}
+
+function render(){
+  const list=$('#list');
+  const categoryOf=c=> c.category || (c.sharer?'site':'auto');
+  let codes=(DATA.codes||[]).filter(c=>{
+    if(filter!=='all' && c.status!==filter) return false;
+    if(cat!=='all' && categoryOf(c)!==cat) return false;
+    if(q){
+      const hay=(c.code+' '+(c.source_label||'')+' '+(c.author||'')+' '+(c.title||'')).toLowerCase();
+      if(!hay.includes(q.toLowerCase())) return false;
+    }
+    return true;
+  });
+  // 排序
+  const tsOf=c=>Date.parse(c.posted_at_utc||'')||0;
+  if(sortBy==='newest') codes.sort((a,b)=>tsOf(b)-tsOf(a));
+  else if(sortBy==='oldest') codes.sort((a,b)=>tsOf(a)-tsOf(b));
+  else if(sortBy==='expire') codes.sort((a,b)=>(a.expire_at||Infinity)-(b.expire_at||Infinity));
+  else if(sortBy==='hits') codes.sort((a,b)=>((b.hits||[]).length-(a.hits||[]).length)||(tsOf(b)-tsOf(a)));
+  $('#cnt').textContent=`显示 ${codes.length} / ${(DATA.codes||[]).length} 条`;
+  if(!codes.length){ list.innerHTML='<div class="empty">暂无符合条件的邀请码<br>点右上角「刷新」试试，或去社区找码</div>'; return; }
+  const now=Date.now();
+  list.innerHTML=codes.map(c=>{
+    const bad=tried.has(c.code);
+    let extra='';
+    if(c.expire_at){
+      const left=Math.floor(c.expire_at*1000-now);
+      extra = left>0
+        ? `<span class="tag">${Math.floor(left/3600000)} 小时后过期</span>`
+        : `<span class="tag expired">已过期</span>`;
+    }
+    const age=c.posted_at_utc? fmtAge(Date.parse(c.posted_at_utc)) : '';
+    const isSite=categoryOf(c)==='site';
+    // 站内分享不显示来源与原文链接
+    const link=(!isSite && c.source_url)? `<a class="link" href="${c.source_url}" target="_blank" rel="noopener">查看原文 →</a>`:'';
+    const catTag = isSite
+      ? '<span class="tag cat-site">站内分享</span>'
+      : (categoryOf(c)==='external'?'<span class="tag cat-external">站外分享</span>':'');
+    const srcTag = isSite ? '' : `<span class="tag src">${c.source_label||'未知来源'}</span>`;
+    return `<div class="item">
+      <div><div class="code" data-code="${c.code}" title="点击复制">${c.code}</div>
+        ${bad?'<span class="tag used" style="margin-top:5px">你标记为不可用</span>':''}</div>
+      <div class="info">
+        <div class="tags">
+          <span class="tag ${c.status}">${statusText(c.status)}</span>
+          ${catTag}${srcTag}
+          ${c.sharer && c.sharer.name?`<span class="sharer" title="${escapeHtml(c.sharer.emailMasked||'')}"><span class="g">${c.sharer.gender==='male'?'♂':c.sharer.gender==='female'?'♀':''}</span>由 ${escapeHtml(c.sharer.name)} 分享</span>`:''}
+          ${extra}
+          ${c.reply_count?`<span class="tag hits-btn" data-detail="${c.code}" title="点击查看回复">${c.reply_count} 条回复</span>`:''}
+          ${(c.hits&&c.hits.length>1)||c.seen_count>1?`<span class="tag hits-btn" data-detail="${c.code}" title="点击查看命中的来源">${c.hits&&c.hits.length>1?c.hits.length:c.seen_count} 源命中</span>`:''}
+        </div>
+        <div class="desc" title="${(c.title||'').replace(/"/g,'&quot;')}">${c.title?c.title.replace(/</g,'&lt;'):''} ${c.author?`<b>@${c.author}</b>`:''} ${age}</div>
+      </div>
+      <div class="right">${link}
+        <button class="mini ${bad?'on':''}" data-tried="${c.code}">${bad?'标记不可用':'标记不可用'}</button>
+      </div></div>`;
+  }).join('');
+  list.querySelectorAll('.code').forEach(el=>el.onclick=()=>copyCode(el.dataset.code,el));
+  list.querySelectorAll('[data-tried]').forEach(el=>el.onclick=()=>{
+    const c=el.dataset.tried;
+    if(tried.has(c)){ tried.delete(c); toast('已取消标记'); } else { tried.add(c); toast('已标记为不可用'); }
+    saveTried(); render();
+  });
+  list.querySelectorAll('[data-detail]').forEach(el=>el.onclick=()=>openDetail(el.dataset.detail));
+}
+
+// ---- 今日码池推荐 ----
+let recoIdx=0;
+function todayStr(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function renderReco(){
+  const body=$('#recoBody'), flag=$('#recoFlag');
+  const today=todayStr();
+  // 今日发布、官方校验有效、未标记不可用的码
+  const all=(DATA.codes||[]).filter(c=>c.status==='available' && !tried.has(c.code));
+  const todayCodes=all.filter(c=>(c.posted_at||'').startsWith(today));
+  const pool=todayCodes.length?todayCodes:all; // 今日无新码则回退到全部可用码
+  flag.textContent = pool===todayCodes ? '今日新增 '+pool.length+' 个' : '今日暂无新码 · 推荐可用码';
+  if(!pool.length){
+    body.innerHTML='<div class="reco-empty">暂无可推荐的邀请码，稍后再来试试</div>';
+    return;
+  }
+  recoIdx=recoIdx%pool.length;
+  const c=pool[recoIdx];
+  const sharer=(c.sharer&&c.sharer.name)?('由 '+c.sharer.name+' 分享'):'';
+  const src=(c.category==='site')?'站内分享':(c.source_label||'社区');
+  body.innerHTML=`<div class="reco-body">
+    <span class="reco-code" id="recoCode" title="点击复制">${c.code}</span>
+    <div class="reco-info">${src}${sharer?' · '+sharer:''}<br>位置 ${recoIdx+1}/${pool.length}</div>
+    <div class="reco-ops">
+      <button id="recoNext">更换一下</button>
+      <button id="recoUsed">已使用</button>
+    </div>
+  </div>`;
+  $('#recoCode').onclick=()=>copyCode(c.code,$('#recoCode'));
+  $('#recoNext').onclick=()=>{ recoIdx=(recoIdx+1)%pool.length; renderReco(); };
+  $('#recoUsed').onclick=()=>{
+    tried.add(c.code); saveTried();
+    toast('已标记使用，换一个推荐');
+    renderReco(); render();
+  };
+}
+
+// ---- 命中来源 / 回复详情 ----
+function openDetail(code){
+  const c=(DATA.codes||[]).find(x=>x.code===code);
+  if(!c){ toast('未找到详情'); return; }
+  $('#detailCode').textContent=c.code;
+  const hits=c.hits||[];
+  let html='';
+  if(!hits.length){
+    html='<div class="detail-empty">暂无来源详情</div>';
+  }else{
+    html='<div class="detail-tip">该邀请码在以下 '+hits.length+' 个来源被发现，点击来源可直达原文：</div>';
+    hits.forEach(h=>{
+      const comments=h.comments||[];
+      const link=h.url?`<a class="hit-link" href="${escapeHtml(h.url)}" target="_blank" rel="noopener">查看原文 →</a>`:'';
+      let replies='';
+      if(comments.length){
+        replies=`<div class="replies"><div class="replies-h">回复 / 评论（${comments.length}）</div>`+
+          comments.map(r=>`<div class="reply">`+
+            (r.author?`<span class="ra">${escapeHtml(r.author)}</span>`:'')+
+            (r.posted_at?`<span class="rt">${escapeHtml(r.posted_at)}</span>`:'')+
+            (r.text?`<span class="rx">${escapeHtml(r.text)}</span>`:'')+
+          `</div>`).join('')+`</div>`;
+      }
+      html+=`<div class="hit">
+        <div class="hit-top">
+          <span class="hit-label">${escapeHtml(h.label||h.source||'来源')}</span>
+          ${h.author?`<span class="hit-author">${escapeHtml(h.author)}</span>`:''}
+          ${h.posted_at?`<span class="hit-time">${escapeHtml(h.posted_at)}</span>`:''}
+        </div>
+        ${h.title?`<div class="hit-title">${escapeHtml(h.title)}</div>`:''}
+        ${link}${replies}
+      </div>`;
+    });
+  }
+  $('#detailBody').innerHTML=html;
+  $('#detailMask').classList.add('show');
+}
+function closeDetail(){ $('#detailMask').classList.remove('show'); }
+$('#detailClose').onclick=closeDetail;
+$('#detailMask').onclick=e=>{ if(e.target===$('#detailMask')) closeDetail(); };
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDetail(); });
+
+async function load(){
+  try{
+    const r=await apiFetch('/api/codes?t='+Date.now(),{cache:'no-store'});
+    const j=await r.json();
+    DATA=j;
+    $('#upd').textContent=(j.lastUpdated||'未知')+(j.refreshing?'（正在采集中…）':'');
+    if(j.errors&&j.errors.length) $('#err').textContent=' ⚠ 采集告警：'+j.errors.join('；');
+    renderCommunity(); renderStats(); renderReco(); render();
+    if(ME) renderMyShares();
+  }catch(e){
+    $('#list').innerHTML='<div class="empty">数据加载失败，正在重试…</div>';
+  }
+}
+
+// ---- 登录 / 注册 ----
+// 发码后 60 秒倒计时，避免重复发送
+function startCountdown(btn, seconds, label){
+  label = label || '获取验证码';
+  let left = seconds;
+  const orig = label;
+  btn.disabled = true;
+  btn.textContent = left + 's 后重发';
+  const timer = setInterval(()=>{
+    left--;
+    if(left<=0){
+      clearInterval(timer);
+      btn.disabled = false;
+      btn.textContent = orig;
+    }else{
+      btn.textContent = left + 's 后重发';
+    }
+  }, 1000);
+}
+function authMsg(t,cls){ const el=$('#authMsg'); el.textContent=t; el.className='mmsg '+(cls||''); }
+let authMode='code';
+function setAuthView(v){
+  $('#authViewLogin').hidden = v!=='login';
+  $('#authViewReset').hidden = v!=='reset';
+  if(v==='login') setTimeout(()=>$('#authEmail').focus(),50);
+}
+function setAuthMode(m){
+  authMode=m;
+  document.querySelectorAll('#authTabs button').forEach(b=>b.classList.toggle('on', b.dataset.mode===m));
+  $('#codeMode').hidden = m!=='code';
+  $('#passwordMode').hidden = m!=='password';
+  authMsg('','');
+}
+function openAuth(){ $('#authMask').classList.add('show'); setAuthView('login'); setAuthMode(authMode); }
+function closeAuth(){ $('#authMask').classList.remove('show'); }
+$('#guestLoginBtn').onclick=openAuth;
+$('#authClose').onclick=closeAuth;
+$('#authMask').onclick=e=>{ if(e.target===$('#authMask')) closeAuth(); };
+document.querySelectorAll('#authTabs button').forEach(b=>b.onclick=()=>setAuthMode(b.dataset.mode));
+$('#forgotBtn').onclick=()=>{ setAuthView('reset'); resetMsg('',''); };
+$('#resetBackBtn').onclick=()=>setAuthView('login');
+
+async function checkMe(){
+  if(!TOKEN){ renderAccount(); return; }
+  try{
+    const r=await apiFetch('/api/auth/me',{headers:{Authorization:'Bearer '+TOKEN}});
+    const j=await r.json();
+    if(j.ok && j.user){ ME=j.user; ME.stats=j.stats; }
+    else { TOKEN=''; localStorage.removeItem('xd_token'); ME=null; }
+  }catch(e){ /* 网络错误保留本地态 */ }
+  renderAccount();
+}
+function genderText(g){ return {male:'男',female:'女',other:'其他'}[g]||'保密'; }
+function renderAccount(){
+  const guest=$('#accountGuest'), panel=$('#accountPanel');
+  if(!guest||!panel) return;
+  if(!ME){
+    guest.hidden=false; panel.hidden=true; return;
+  }
+  guest.hidden=true; panel.hidden=false;
+  const name=ME.username || (ME.email||'').split('@')[0];
+  $('#profName').innerHTML=escapeHtml(name)+' <span style="font-size:11px;color:var(--dim);font-weight:400">'+genderText(ME.gender)+'</span>';
+  $('#profMail').textContent=ME.email;
+  $('#curMail').textContent=ME.email;
+  $('#profAvatar').textContent=(name||'?').slice(0,1).toUpperCase();
+  $('#pfUsername').value=ME.username||'';
+  $('#pfBio').value=ME.bio||'';
+  const ps=$('#pwdStatus');
+  if(ps){ ps.textContent = ME.has_password?'已设置':'未设置'; ps.style.color = ME.has_password?'var(--ok)':'var(--dim)'; }
+  document.querySelectorAll('#genderRow button').forEach(b=>b.classList.toggle('on', b.dataset.g===(ME.gender||'')));
+  renderMyShares();
+}
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function renderMyShares(){
+  const box=$('#myShares'); if(!box) return;
+  // 用用户名匹配：分享名 == 当前用户名或邮箱前缀
+  const myName=ME.username || (ME.email||'').split('@')[0];
+  const list=(DATA.codes||[]).filter(c=>c.sharer && (c.sharer.name===myName));
+  $('#myShareCount').textContent=list.length;
+  if(!list.length){ box.innerHTML='<div class="acc-empty">暂无分享，去「提交邀请码」分享你找到的码吧。</div>'; return; }
+  // 默认只显示 20 个，可展开全部
+  const LIMIT=20;
+  const showAll=myShareAll;
+  const rows=showAll?list:list.slice(0,LIMIT);
+  const body=rows.map(c=>`<tr>
+    <td><span class="tcode" data-mcode="${c.code}" title="点击复制">${escapeHtml(c.code)}</span></td>
+    <td><span class="tst ${c.status}">${statusText(c.status)}</span></td>
+    <td class="tsrc">${escapeHtml(c.category==='site'?'站内分享':(c.source_label||''))}</td>
+    <td class="ttime">${escapeHtml((c.posted_at||'').slice(5,16)||'—')}</td>
+    <td class="tact">${c.source_url?`<a class="link" href="${escapeHtml(c.source_url)}" target="_blank" rel="noopener">原文 →</a>`:''}</td>
+  </tr>`).join('');
+  box.innerHTML=`<div class="share-wrap"><table class="shares-table">
+      <thead><tr><th>邀请码</th><th>状态</th><th>来源</th><th>时间</th><th></th></tr></thead>
+      <tbody>${body}</tbody>
+    </table></div>
+    ${list.length>LIMIT?`<button class="fold-more" id="myShareMore">${showAll?'收起，只看前 20 个':`展开全部 ${list.length} 个`}</button>`:''}`;
+  box.querySelectorAll('[data-mcode]').forEach(el=>el.onclick=()=>copyCode(el.dataset.mcode,el));
+  const more=$('#myShareMore');
+  if(more) more.onclick=()=>{ myShareAll=!myShareAll; renderMyShares(); };
+}
+async function doLogout(){
+  try{ await apiFetch('/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+TOKEN}}); }catch(e){}
+  TOKEN=''; ME=null; localStorage.removeItem('xd_token'); renderAccount(); toast('已退出登录');
+}
+let genderPick='';
+document.querySelectorAll('#genderRow button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#genderRow button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); genderPick=b.dataset.g;
+});
+function profMsg(t,cls){ const el=$('#profMsg'); el.textContent=t; el.className='mmsg '+(cls||''); }
+$('#saveProfileBtn').onclick=async()=>{
+  if(!ME){ toast('请先登录'); return; }
+  const payload={username:$('#pfUsername').value.trim(), bio:$('#pfBio').value.trim(), gender:genderPick||ME.gender||''};
+  const btn=$('#saveProfileBtn'); btn.textContent='保存中…'; btn.disabled=true;
+  try{
+    const r=await apiFetch('/api/auth/profile',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:JSON.stringify(payload)});
+    const j=await r.json();
+    if(j.ok && j.user){ ME=j.user; profMsg('资料已保存','ok'); renderAccount(); setTimeout(load,1500); }
+    else profMsg(j.error||'保存失败','err');
+  }catch(e){ profMsg('保存失败，请重试','err'); }
+  finally{ btn.textContent='保存资料'; btn.disabled=false; }
+};
+function mailMsg(t,cls){ const el=$('#mailMsg'); el.textContent=t; el.className='mmsg '+(cls||''); }
+$('#mailSendBtn').onclick=async()=>{
+  const email=$('#newMail').value.trim();
+  if(!email){ mailMsg('请输入新邮箱','err'); return; }
+  const btn=$('#mailSendBtn'); btn.textContent='发送中…'; btn.disabled=true;
+  try{
+    const r=await apiFetch('/api/auth/change-email/send',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:JSON.stringify({email})});
+    const j=await r.json();
+    if(j.ok){
+      mailMsg('验证码已发送，请查收新邮箱','ok');
+      startCountdown(btn,60,'获取验证码');
+      if(j.dev_code){ $('#mailCode').value=j.dev_code; }
+    }
+    else{
+      mailMsg(j.error||'发送失败','err');
+      if(j.cooldown) startCountdown(btn,j.cooldown,'获取验证码');
+      else { btn.textContent='获取验证码'; btn.disabled=false; }
+    }
+  }catch(e){ mailMsg('发送失败，请重试','err'); btn.textContent='获取验证码'; btn.disabled=false; }
+};
+$('#mailConfirmBtn').onclick=async()=>{
+  const email=$('#newMail').value.trim(), code=$('#mailCode').value.trim();
+  if(!email||!code){ mailMsg('请填写新邮箱和验证码','err'); return; }
+  try{
+    const r=await apiFetch('/api/auth/change-email/confirm',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:JSON.stringify({email,code})});
+    const j=await r.json();
+    if(j.ok && j.user){ ME=j.user; mailMsg('邮箱已更新','ok'); renderAccount(); toast('邮箱已更新'); }
+    else mailMsg(j.error||'更换失败','err');
+  }catch(e){ mailMsg('更换失败，请重试','err'); }
+};
+function pwdMsg(t,cls){ const el=$('#pwdMsg'); el.textContent=t; el.className='mmsg '+(cls||''); }
+$('#setPwdBtn').onclick=async()=>{
+  const password=$('#setPwd').value;
+  if(!password){ pwdMsg('请输入密码','err'); return; }
+  try{
+    const r=await apiFetch('/api/auth/password',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:JSON.stringify({password})});
+    const j=await r.json();
+    if(j.ok){ ME=j.user||ME; $('#setPwd').value=''; pwdMsg('密码已设置，可用密码登录','ok'); renderAccount(); }
+    else pwdMsg(j.error||'设置失败','err');
+  }catch(e){ pwdMsg('设置失败，请重试','err'); }
+};
+$('#sendCodeBtn').onclick=async()=>{
+  const email=$('#authEmail').value.trim();
+  if(!email){ authMsg('请输入邮箱地址','err'); return; }
+  const btn=$('#sendCodeBtn'); btn.textContent='发送中…'; btn.disabled=true;
+  try{
+    const r=await apiFetch('/api/auth/send-code',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email})});
+    const j=await r.json();
+    if(!j.ok){
+      authMsg(j.error||'发送失败','err');
+      if(j.cooldown){ startCountdown(btn,j.cooldown); }
+      else { btn.textContent='获取验证码'; btn.disabled=false; }
+    }
+    else{
+      authMsg('验证码已发送，请查收邮箱','ok');
+      startCountdown(btn,60);
+      if(j.dev_code){
+        $('#devCodeBox').style.display='block';
+        $('#devCodeText').textContent=j.dev_code;
+        $('#authCode').value=j.dev_code;
+      }
+    }
+  }catch(e){ authMsg('发送失败，请稍后重试','err'); btn.textContent='获取验证码'; btn.disabled=false; }
+};
+function applyLogin(j){
+  TOKEN=j.token; localStorage.setItem('xd_token',TOKEN);
+  ME=j.user; ME.stats={submitted:0};
+  renderAccount(); closeAuth();
+  toast((j.user.is_new?'注册':'登录')+'成功');
+}
+$('#authLogin').onclick=async()=>{
+  const email=$('#authEmail').value.trim();
+  if(!email){ authMsg('请填写邮箱地址','err'); return; }
+  let url, body;
+  if(authMode==='password'){
+    const password=$('#authPassword').value;
+    if(!password){ authMsg('请填写密码','err'); return; }
+    url='/api/auth/login-password'; body={email,password};
+  }else{
+    const code=$('#authCode').value.trim();
+    if(!code){ authMsg('请填写验证码','err'); return; }
+    url='/api/auth/verify'; body={email,code};
+  }
+  const btn=$('#authLogin'); btn.textContent='登录中…'; btn.disabled=true;
+  try{
+    const r=await apiFetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json();
+    if(!j.ok){ authMsg(j.error||'登录失败','err'); return; }
+    applyLogin(j);
+  }catch(e){ authMsg('登录失败，请稍后重试','err'); }
+  finally{ btn.textContent='登录 / 注册'; btn.disabled=false; }
+};
+
+// ---- 忘记密码 ----
+function resetMsg(t,cls){ const el=$('#resetMsg'); el.textContent=t; el.className='mmsg '+(cls||''); }
+$('#resetSendBtn').onclick=async()=>{
+  const email=$('#resetEmail').value.trim();
+  if(!email){ resetMsg('请输入绑定邮箱','err'); return; }
+  const btn=$('#resetSendBtn'); btn.textContent='发送中…'; btn.disabled=true;
+  try{
+    const r=await apiFetch('/api/auth/reset/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    const j=await r.json();
+    if(j.ok){
+      resetMsg('如果该邮箱已绑定，验证码已发送，请查收','ok');
+      startCountdown(btn,60);
+      if(j.dev_code){ $('#resetDevBox').style.display='block'; $('#resetDevText').textContent=j.dev_code; $('#resetCode').value=j.dev_code; }
+    }
+    else{
+      resetMsg(j.error||'发送失败','err');
+      if(j.cooldown) startCountdown(btn,j.cooldown);
+      else { btn.textContent='获取验证码'; btn.disabled=false; }
+    }
+  }catch(e){ resetMsg('发送失败，请重试','err'); btn.textContent='获取验证码'; btn.disabled=false; }
+};
+$('#resetConfirmBtn').onclick=async()=>{
+  const email=$('#resetEmail').value.trim(), code=$('#resetCode').value.trim(), password=$('#resetPwd').value;
+  if(!email||!code||!password){ resetMsg('请填写邮箱、验证码和新密码','err'); return; }
+  try{
+    const r=await apiFetch('/api/auth/reset/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,code,password})});
+    const j=await r.json();
+    if(j.ok){ resetMsg('密码已重置，请用新密码登录','ok'); setTimeout(()=>{ setAuthView('login'); setAuthMode('password'); $('#authEmail').value=email; },1200); }
+    else resetMsg(j.error||'重置失败','err');
+  }catch(e){ resetMsg('重置失败，请重试','err'); }
+};
+
+// ---- 外观设置：交给独立的 UI 控制组件（static/js/ui-control.js） ----
+// 组件负责：主题（跟随系统/暗黑/亮色）、主题色、毛玻璃开关与微调、胶囊形状、
+//          安卓 11 风格、动效开关，并把状态持久化到 localStorage。
+// 组件脚本是动态注入的，可能晚于本脚本执行，这里做一次等待。
+(function initAppearance(){
+  if(window.XDUI){ try{ window.XDUI.init(); }catch(e){ console.warn('UI init failed',e); } return; }
+  var tries=0;
+  (function wait(){
+    if(window.XDUI){ try{ window.XDUI.init(); }catch(e){} return; }
+    if(++tries>40) return;                       // 最多等 2 秒
+    setTimeout(wait,50);
+  })();
+})();
+
+// ---- 我分享的邀请码：折叠 / 展开 ----
+$('#myShareHead').onclick=()=>{ $('#myShareFold').classList.toggle('open'); };
+
+// ---- 抓取书签：在用户已登录的社区页面执行，只读取页面公开文字 ----
+function buildBookmarklet(){
+  // 提交目标：同源时用当前页面源；前端独立托管（CF Pages）时用 API 基址
+  const origin=API_BASE||location.origin;
+  // 书签脚本在社区页面运行：抽取页面文字里的候选码，POST 回本站
+  const js=`(function(){
+    var txt=document.body?document.body.innerText:'';
+    var re=/(?<![A-Z0-9])(?:M-[A-Z0-9]{6}|[A-Z0-9]{6})(?![A-Z0-9])/g;
+    var m,out=[];
+    while((m=re.exec(txt))!==null){var c=m[0].toUpperCase();if(out.indexOf(c)<0)out.push(c);}
+    if(!out.length){alert('当前页面没有找到候选邀请码');return;}
+    var payload={codes:out.slice(0,50),source:'抓取书签',url:location.href.slice(0,300)};
+    var sc=${JSON.stringify(SHARECODE)};
+    var q=sc?('?sharecode='+encodeURIComponent(sc)):'';
+    fetch('${origin}/api/submit'+q,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+      .then(function(r){return r.json()}).then(function(j){
+        var msg=j.message||('校验完成，收录 '+(j.added||[]).length+' 个');
+        window.open('${origin}/?'+(sc?('sharecode='+encodeURIComponent(sc)+'&'):'')+'submitted='+encodeURIComponent(msg),'_blank');
+      }).catch(function(){alert('提交失败，请手动复制码到本站提交');});
+  })();`;
+  $('#bmlink').href='javascript:'+encodeURIComponent(js);
+}
+
+let submitMode='site';
+function setSubmitMode(mode){
+  submitMode=mode;
+  document.querySelectorAll('[data-smode]').forEach(b=>b.classList.toggle('on',b.dataset.smode===mode));
+  const tip=$('#smodeTip'), input=$('#scode');
+  if(mode==='site'){
+    tip.textContent='站内共享需要先登录，登录后你的邀请码会展示在码池里并标注分享者。';
+    input.placeholder='粘贴邀请码，多个用空格/逗号分隔';
+  }else{
+    tip.textContent='站外分享可粘贴邀请码或一条分享链接；填链接会自动抓取其中的邀请码并识别来源，别人可一键直达原文。';
+    input.placeholder='粘贴邀请码，或粘贴一条分享链接自动识别';
+  }
+}
+document.querySelectorAll('[data-smode]').forEach(b=>b.onclick=()=>setSubmitMode(b.dataset.smode));
+
+async function submitCodes(){
+  const raw=$('#scode').value.trim();
+  const msg=$('#smsg');
+  if(!raw){ msg.innerHTML='<span class="warn">请粘贴邀请码'+(submitMode==='external'?'或分享链接':'')+'</span>'; return; }
+  if(submitMode==='site' && !ME){ msg.innerHTML='<span class="warn">站内共享需要先登录，请先到「我的账号」登录</span>'; switchPage('account'); return; }
+  const isLink=/^https?:\/\//i.test(raw);
+  msg.textContent=(submitMode==='external'&&isLink)?'正在抓取链接并识别邀请码…':'正在逐个调用官方接口校验…';
+  try{
+    const headers={'Content-Type':'application/json'};
+    const r=await apiFetch('/api/submit',{method:'POST',headers,
+      body:JSON.stringify({codes:raw,share_type:submitMode,source:ME?('用户 '+ME.email):'手动提交'})});
+    const j=await r.json();
+    if(!j.ok){
+      if(j.needLogin){ msg.innerHTML='<span class="warn">'+j.error+'</span>'; switchPage('account'); return; }
+      msg.innerHTML='<span class="warn">'+(j.error||'提交失败')+'</span>'; return;
+    }
+    let html='<b>'+(j.message||'')+'</b>';
+    if((j.added||[]).length) html+='<br>已收录：<b>'+j.added.join('、')+'</b>';
+    if((j.expired||[]).length) html+='<br><span class="warn">已过期：'+j.expired.join('、')+'</span>';
+    if((j.rejected||[]).length) html+='<br><span class="warn">未通过：'+j.rejected.join('、')+'</span>';
+    msg.innerHTML=html;
+    $('#scode').value='';
+    if((j.added||[]).length) setTimeout(load,2500);
+  }catch(e){ msg.innerHTML='<span class="warn">提交失败，请稍后重试</span>'; }
+}
+$('#ssubmit').onclick=submitCodes;
+$('#scode').addEventListener('keydown',e=>{ if(e.key==='Enter') submitCodes(); });
+// 书签提交后跳回时展示结果
+try{
+  const sm=new URLSearchParams(location.search).get('submitted');
+  if(sm){ switchPage('submit'); $('#smsg').innerHTML='<b>书签提交：'+sm.replace(/</g,'&lt;')+'</b>'; }
+}catch(e){}
+
+document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); filter=b.dataset.filter; render();
+});
+document.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('[data-cat]').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); cat=b.dataset.cat; render();
+});
+$('#sort').addEventListener('change',e=>{ sortBy=e.target.value; render(); });
+$('#q').addEventListener('input',e=>{ q=e.target.value.trim(); render(); });
+$('#reload').onclick=async()=>{ $('#reload').textContent='刷新中…';
+  await apiFetch('/api/refresh').catch(()=>{});
+  setTimeout(()=>$('#reload').textContent='刷新',1200);
+  setTimeout(load,1800); };
+
+buildBookmarklet();
+// 恢复上次所在页（书签跳回时用 hash/参数优先）
+try{
+  let start='codes';
+  const h=(location.hash||'').replace('#','');
+  if(['codes','community','submit','account','about'].includes(h)) start=h;
+  else { const p=localStorage.getItem('xd_page'); if(['codes','community','submit','account','about'].includes(p)) start=p; }
+  switchPage(start);
+}catch(e){}
+checkMe();
+// 每 25 秒自动抓取一次并刷新：后端有采集锁 + 官方校验 TTL 缓存保护，不会打爆额度
+load();
+setInterval(()=>{ apiFetch('/api/refresh').catch(()=>{}); load(); }, 25000);
+</script>
+</body>
+</html>

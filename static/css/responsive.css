@@ -1,0 +1,164 @@
+/* ============================================================
+   responsive.css —— 响应式适配（移动端 / 平板 / PC）
+   与 material.css / glass.css 解耦，只负责布局与断点。
+   ============================================================ */
+
+/* ===== 平板（≤ 900px） ===== */
+@media (max-width:900px){
+  .wrap{padding:18px 14px 56px}
+  .theme-pop{width:min(320px,calc(100vw - 28px))}
+}
+
+/* ===== 移动端（≤ 720px） ===== */
+@media(max-width:720px){
+  .wrap{padding:16px 12px 48px}
+  header{padding:16px 0 12px;margin-bottom:14px}
+  h1{font-size:20px}
+  .sub{font-size:12.5px;line-height:1.6}
+  .userbar{justify-content:flex-start;flex-wrap:wrap;gap:6px;font-size:12px}
+
+  /* 导航：横向滚动，避免挤压换行 */
+  .nav{flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:2px 0 8px;margin-bottom:14px;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .nav::-webkit-scrollbar{display:none}
+  .nav-tab{flex:0 0 auto;min-width:84px;padding:9px 12px;font-size:13px}
+
+  .banner{font-size:12px;padding:10px 12px;line-height:1.65;margin:12px 0}
+  .stats{grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+  .stat{padding:10px 12px}
+  .stat .n{font-size:21px}
+  .stat .l{font-size:11.5px}
+
+  /* 筛选：整行横向滚动；搜索 + 刷新 单独一行 */
+  .bar{gap:8px}
+  .filters{flex:1 1 100%;min-width:0;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .filters::-webkit-scrollbar{display:none}
+  .filters button{flex:0 0 auto;white-space:nowrap;padding:7px 12px;font-size:12.5px}
+  .bar .search{flex:1 1 auto;min-width:0}
+  .bar .spacer{display:none}
+  #reload{flex:0 0 auto;white-space:nowrap}
+  .meta{font-size:11.5px;line-height:1.6;gap:4px 12px}
+
+  /* 今日推荐 / 分类 / 排序 */
+  .reco{padding:12px 13px}
+  .reco-code{font-size:22px}
+  .reco-body{gap:8px}
+  .reco-ops{width:100%}
+  .reco-ops button{flex:1}
+  select.sort{flex:0 0 auto;padding:7px 9px;font-size:12.5px}
+  .smodes button{min-width:0;font-size:12.5px;padding:9px 10px}
+
+  /* 列表项：紧凑排版，避免溢出 */
+  .item{padding:11px 12px;gap:10px}
+  .code{font-size:17px}
+  .desc{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.5}
+  .tags{gap:5px}
+  .tag{font-size:11px;padding:2px 7px}
+  .right{gap:5px}
+
+  /* 社区卡片两列 */
+  .cgrid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .ccard{padding:10px 11px}
+
+  /* 提交区 */
+  .submitbox{padding:12px;margin:14px 0}
+  .sinput{flex:1 1 100%;min-width:0}
+  .srow button,.srow .btn{flex:1 1 auto;text-align:center}
+
+  .panelbox{padding:15px 14px}
+  .modal{padding:18px}
+  footer{font-size:11.5px}
+
+  /* 分享表格：移动端隐藏来源列，表格横向可滚动 */
+  .shares-table{min-width:0}
+  .shares-table th:nth-child(3),.shares-table td:nth-child(3){display:none}
+  .shares-table .tsrc{max-width:none}
+  .shares-table th,.shares-table td{padding:7px 6px}
+
+  /* 外观设置面板：移动端全宽，靠近顶部 */
+  .theme-pop{
+    position:fixed;top:auto;left:10px;right:10px;width:auto;max-width:none;
+    max-height:min(74vh,560px);border-radius:20px;padding:15px 14px;
+  }
+  header{position:relative}
+
+  /* 毛玻璃在移动端降低模糊，避免掉帧 */
+  html[data-glass="on"] :is(.stat,.item,.reco,.ccard,.panelbox,.submitbox,.fold,.hit){
+    -webkit-backdrop-filter:blur(calc(var(--glass-blur) * .72)) saturate(var(--glass-sat));
+    backdrop-filter:blur(calc(var(--glass-blur) * .72)) saturate(var(--glass-sat));
+  }
+  html[data-glass="on"] :is(.modal,.detail-modal,.theme-pop){
+    -webkit-backdrop-filter:blur(calc(var(--glass-blur) + 2px)) saturate(var(--glass-sat));
+    backdrop-filter:blur(calc(var(--glass-blur) + 2px)) saturate(var(--glass-sat));
+  }
+}
+
+/* ===== 小屏（≤ 380px） ===== */
+@media(max-width:380px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .cgrid{grid-template-columns:1fr 1fr}
+  .theme-btn{padding:5px 9px;font-size:12px}
+  h1{font-size:18px}
+}
+
+/* ===== PC 宽屏优化（≥ 1280px） ===== */
+@media(min-width:1280px){
+  .wrap{max-width:1180px;padding:26px 20px 72px}
+  h1{font-size:25px}
+  .item{padding:14px 18px}
+  .code{font-size:19px}
+  .panelbox{padding:22px 26px}
+  .modal{padding:26px}
+  .detail-modal{max-width:620px}
+  .theme-pop{width:308px;right:16px}
+  .nav-tab{padding:10px 14px}
+  .cgrid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+}
+
+/* ===== 超宽屏（≥ 1680px） ===== */
+@media(min-width:1680px){
+  .wrap{max-width:1320px}
+  .stats{grid-template-columns:repeat(5,1fr)}
+  .item{grid-template-columns:minmax(160px,auto) 1fr auto}
+}
+
+/* ===== PC 专属：鼠标悬停增强（仅 pointer 精确时启用） ===== */
+@media(hover:hover) and (pointer:fine){
+  .item{transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease}
+  .item:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--accent) 42%,var(--line))}
+  .stat{transition:transform .16s ease, box-shadow .16s ease}
+  .stat:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.16)}
+  .fold-h{transition:background .15s ease}
+  .swatch-btn{transition:transform .15s ease, border-color .15s ease}
+  .swatch-btn:hover{transform:scale(1.12)}
+  button,.btn{transition:background .15s ease,border-color .15s ease,color .15s ease,transform .12s ease}
+  button:active,.btn:active{transform:scale(.98)}
+  .code{transition:background .14s ease,transform .12s ease}
+  .code:hover{transform:translateY(-1px)}
+  /* 键盘可达性：焦点环 */
+  :focus-visible{outline:2px solid var(--accent2);outline-offset:2px;border-radius:var(--r-sm)}
+}
+
+/* ===== 触屏：去掉 hover 位移，避免点击后残留 ===== */
+@media(hover:none){
+  .item:hover,.stat:hover,.ccard:hover{transform:none}
+  .item:hover{border-color:var(--line)}
+}
+
+/* ===== 打印 ===== */
+@media print{
+  .nav,.theme-btn,.theme-pop,.bg-aurora,.toast,.bar,.reco{display:none!important}
+  body{background:#fff;color:#000}
+  .item,.stat,.panelbox{border:1px solid #ccc;background:#fff;box-shadow:none}
+}
+
+/* ===== 深色模式下的滚动条（PC） ===== */
+@media(hover:hover) and (pointer:fine){
+  ::-webkit-scrollbar{width:11px;height:11px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{
+    background:color-mix(in srgb,var(--fg) 18%,transparent);
+    border-radius:999px;border:3px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--fg) 30%,transparent);background-clip:content-box}
+}

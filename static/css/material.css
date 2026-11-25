@@ -1,0 +1,97 @@
+/* ============================================================
+   material.css —— Android 11 / Material You 风格层
+   启用条件：<html data-md="on">（动态取色 / 超椭圆 / 状态层 / 涟漪）
+   独立于毛玻璃层，可与 data-glass 自由组合。
+   选择器统一用 :where() 包裹，保持低特异性，避免与其它材质层互抢。
+   ============================================================ */
+
+/* ---- 超椭圆（squircle）轮廓：Android 12+ 的连续曲率 ---- */
+html[data-md="on"] :where(.item,.stat,.ccard,.panelbox,.submitbox,.fold,.hit,.reco,.modal,.detail-modal,.theme-pop,.seg){
+  border-radius:22px;
+}
+html[data-md="on"] :where(button,.btn,.nav-tab,.theme-btn,.mini,.fold-more){
+  border-radius:999px;
+}
+html[data-md="on"] .code{border-radius:14px}
+html[data-md="on"] .avatar{border-radius:50%}
+/* Chrome 139+ 支持 corner-shape: squircle，做渐进增强 */
+@supports (corner-shape:squircle){
+  html[data-md="on"] :where(.item,.stat,.ccard,.panelbox,.submitbox,.fold,.hit,.reco,.modal,.detail-modal,.theme-pop){
+    corner-shape:squircle;
+  }
+}
+
+/* ---- 状态层（State Layer）：Material 的点击/悬停涟漪底色 ---- */
+html[data-md="on"] :where(button,.btn,.nav-tab,.ccard,.item,.stat){
+  position:relative;overflow:hidden;isolation:isolate;
+}
+html[data-md="on"] :where(button,.btn,.nav-tab,.ccard,.item,.stat)::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:currentColor;opacity:0;z-index:-1;
+  transition:opacity .18s ease;
+}
+html[data-md="on"] :where(button,.btn,.nav-tab,.ccard,.item,.stat):hover::after{opacity:.07}
+html[data-md="on"] :where(button,.btn,.nav-tab,.ccard,.item,.stat):active::after{opacity:.12}
+
+/* ---- 点击涟漪（JS 在 ui-control.js 中挂载 .ripple 元素） ---- */
+.ripple{
+  position:absolute;border-radius:50%;transform:scale(0);
+  background:currentColor;opacity:.16;pointer-events:none;
+  animation:rippleWave .6s cubic-bezier(.2,.8,.3,1) forwards;
+}
+@keyframes rippleWave{to{transform:scale(2.6);opacity:0}}
+html[data-motion="off"] .ripple{display:none}
+
+/* ---- 动态取色：主色容器 / 次色容器 ---- */
+html[data-md="on"] :where(button,.btn,.nav-tab,.gender-row button).on{
+  background:var(--md-primary-container);
+  color:var(--md-on-primary-container);
+  border-color:color-mix(in srgb,var(--md-primary) 55%,transparent);
+}
+html[data-md="on"] :where(button,.btn).primary{
+  background:var(--md-primary);
+  color:var(--md-on-primary);
+  border-color:var(--md-primary);
+}
+html[data-md="on"] .avatar{
+  background:linear-gradient(135deg,var(--md-primary),var(--accent2));
+}
+html[data-md="on"] :where(.seg button).on{
+  background:var(--md-secondary-container);
+  color:var(--md-on-secondary-container);
+}
+
+/* ---- 触感反馈：按下轻微缩放（仅触屏） ---- */
+@media (hover:none){
+  html[data-md="on"] :where(button,.nav-tab,.ccard):active{transform:scale(.97)}
+}
+@media (hover:hover){
+  html[data-md="on"] :where(button,.nav-tab):hover{transform:translateY(-1px)}
+  html[data-md="on"] .ccard:hover{transform:translateY(-3px)}
+}
+
+/* ---- 排版：Material 3 的字重与行高 ---- */
+html[data-md="on"] body{font-family:"Roboto","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,sans-serif}
+html[data-md="on"] h1{font-weight:500;letter-spacing:0}
+html[data-md="on"] .stat .n{font-weight:600}
+html[data-md="on"] .reco-code{font-weight:700;letter-spacing:1px}
+html[data-md="on"] :where(.sub,.desc){line-height:1.7}
+
+/* ---- 列表项：更紧凑的 Material 3 卡片节奏 ---- */
+html[data-md="on"] .item{padding:13px 16px;gap:16px}
+html[data-md="on"] .stats{gap:12px}
+html[data-md="on"] .stat{padding:14px}
+
+/* ---- 导航栏：Material 3 导航栏胶囊指示器 ---- */
+html[data-md="on"] .nav{
+  gap:4px;padding:6px;border-radius:999px;border:1px solid var(--line);
+  background:color-mix(in srgb,var(--panel) 92%,transparent);
+  -webkit-backdrop-filter:blur(14px) saturate(150%);
+  backdrop-filter:blur(14px) saturate(150%);
+}
+html[data-md="on"] .nav-tab{border-color:transparent;background:transparent;font-weight:500}
+html[data-md="on"] .nav-tab.on{
+  background:var(--md-primary-container);
+  color:var(--md-on-primary-container);
+  font-weight:700;
+}

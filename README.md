@@ -1,0 +1,165 @@
+# 小豆邀请码抓码站
+
+聚合公开分享的小豆（豆包旗下 AI 个人助理）邀请码，并用**豆包官方邀请页接口**逐个校验有效性。
+
+## 数据来源
+
+| 来源 | 说明 |
+|---|---|
+| B 站搜索 | 多关键词搜索 B 站，提取标题中的邀请码 |
+| B 站评论区 | 抓取小豆相关视频的评论，UP 主与观众互贴的新码主要出自这里 |
+| 社区共享 JSON | 若干公开抓码站发布的数据快照（X / 小红书渠道） |
+| 社区公开搜索页 | 微博 / 知乎 / 贴吧 / 微信公众号 / 小红书 / 抖音，抓到的候选一律经官方接口前置校验，只有真码入库 |
+| 豆瓣小组 | 讨论搜索（`cat=1013`）+ 话题详情页正文与评论区，候选经官方接口前置校验；自带长 TTL 缓存应对豆瓣限流 |
+| 豆包官方接口 | `activity.doubao.com/alice/ug/campaign/onboarding/invite_code/info/` 校验码是否存在及过期时间 |
+
+### 多源命中与回复评论
+同一邀请码被多个来源命中时，记录会汇总所有命中来源（`hits` 字段）及各自回复评论，前端点击「N 源命中 / N 条回复」即可查看逐条来源、直达原文并展开回复内容。
+
+> 微博、知乎、贴吧、微信公众号、小红书、抖音等多需登录态，匿名抓取通常拿不到评论正文。
+> 对这些平台，页面底部提供「去社区找码 / 分享」一键直达入口，用户可前往平台搜索最新分享；
+> 站内采集部分做了官方接口前置校验，即使抓到页面里的脚本哈希等噪音串也不会污染结果。
+
+## 状态含义
+
+- **官方校验有效** —— 官方接口返回该码存在且未过期（最可靠）
+- **待确认** —— 社区标注可能可用，但官方接口未识别（码可能已被消耗或不属于小豆）
+- **社区反馈已用** —— 社区来源已反馈该码被使用
+- **已过期** —— 官方接口显示已过期
+
+## 本地运行
+
+```bash
+pip install -r requirements.txt
+PORT=8080 python3 app.py
+# 打开 http://127.0.0.1:8080
+```
+
+服务端每 180 秒采集一次（`REFRESH_SECONDS` 可调），页面每 20 秒自动拉取最新结果。
+
+## 接口
+
+- `GET /` 抓码站页面
+- `GET /api/codes` 采集结果 JSON
+- `GET /api/health` 健康检查
+- `GET /api/refresh` 手动触发一次采集（异步）
+- `POST /api/submit` 提交候选码，逐个经官方接口校验，只收录真实有效码
+
+## 用户系统（邮箱验证码登录）
+
+支持邮箱验证码注册/登录，无需密码。登录后提交的码记录在本人账号下。
+数据存 SQLite（`data/users.sqlite3`），零额外依赖。
+
+**邮件通道可插拔**：优先读环境变量，未设置时回退到项目根目录 `mail_config.json`。
+
+| Provider | 说明 |
+|---|---|
+| `smtp`（当前默认） | 网易邮箱 `smtp.yeah.net:465`（SSL），授权码存于 `mail_config.json`，已实测发信成功 |
+| `dev` | 不发真实邮件，验证码在页面上直接显示，仅用于演示/测试 |
+| `temporam` | 用 Temporam `/v3/messages` 发信，需 Pro 及以上套餐 + 已验证的 `from` 邮箱 |
+
+当前配置（`mail_config.json`）：发件邮箱 `your-mail@example.com`，SMTP `smtp.yeah.net:465`，
+使用网易邮箱授权码登录。所有用户都能收到真实验证码邮件，不再在页面直显验证码。
+
+需要用环境变量覆盖时（例如换邮箱）：
+
+```bash
+MAIL_PROVIDER=smtp SMTP_HOST=smtp.qq.com SMTP_PORT=465 SMTP_USER=you@qq.com \
+SMTP_PASS=授权码 SMTP_FROM=you@qq.com python3 app.py
+```
+
+> 注意：`mail_config.json` 含邮箱授权码，等同账号密码，请勿公开提交或分享该文件。
+> 之前提供的 Temporam Token 为 `hobby` 套餐，`outbound.limit=0`、发信返回 403
+> `sender_not_allowed`，无法作为发件邮箱，故改用网易 SMTP。
+
+## 用户提交（不上传 Cookie）
+
+站点不收集任何账号 Cookie / 登录凭证。用户提交有两种方式：
+
+1. **手动粘贴**：把社区找到的码贴进页面输入框，本站调用官方接口校验后收录。
+2. **抓取书签**：把页面提供的书签拖到书签栏，在自己已登录的社区页面点击它，
+   书签脚本只读取当前页面公开文字中的候选码并 POST 回本站；Cookie 始终留在用户浏览器内。
+
+用户提交的码持久化在 `data/submitted.json`，重启后自动恢复并并入采集结果。
+
+## 前端结构（UI 分层）
+
+样式与外观逻辑已从 `index.html` 拆出，便于单独调整材质而不动业务逻辑：
+
+```
+static/
+├── index.html          页面结构 + 业务脚本
+├── css/
+│   ├── tokens.css      设计令牌：色板 / 形状 / 玻璃变量 / Material You 派生色
+│   ├── base.css        布局与组件基础样式
+│   ├── glass.css       毛玻璃 · 水晶胶囊材质层（data-glass / data-capsule）
+│   ├── material.css    安卓 11 / Material You 层（data-md）
+│   ├── ui-panel.css    外观设置面板的开关 / 滑块 / 色板控件
+│   └── responsive.css  断点适配：移动端 / 平板 / PC 宽屏 / 打印
+└── js/
+    └── ui-control.js   UI 控制组件（window.XDUI）
+```
+
+### 外观设置面板
+
+标题右侧「外观」按钮打开，分四组：
+
+| 分组 | 选项 |
+|---|---|
+| 外观主题 | 跟随系统 / 暗黑 / 亮色（跟随系统会实时响应系统深浅色切换） |
+| 外观颜色 | 7 个预设色 + 自定义取色器 |
+| 材质与形状 | 毛玻璃水晶效果（开关）· 胶囊形状（开关）· 安卓 11 风格（开关）· 动效（开关） |
+| 玻璃微调 | 表面透明度 0–100% · 背景模糊 0–40px · 水晶高光 0–100% · 推荐参数 / 纯色模式 / 全部重置 |
+
+所有状态存在 `localStorage` 的 `xd_ui_v1`，按需增量写入 `xd_theme_v1` / `xd_accent_v1`。
+
+### 实现要点
+
+- **材质层用 `<html>` 上的 `data-glass` / `data-capsule` / `data-md` / `data-motion` 开关**，
+  CSS 用 `:where()` 包裹选择器把特异性压到最低，避免各层互相覆盖。
+- **毛玻璃**依赖 `backdrop-filter`；不支持时 `@supports` 自动降级为高不透明度纯色。
+  `prefers-reduced-transparency: reduce` 下强制关闭模糊。
+- **背景光晕**（`.bg-aurora`）提供可折射的彩色底层，毛玻璃才有"玻璃厚度"感；
+  关闭毛玻璃时光晕自动减弱。
+- **Material You 动态取色**由主题色派生容器色 / on-容器色，按明暗模式分别走
+  Material 3 的 tone 90（亮）与 tone 30（暗），保证文字对比度达标。
+- **PC 兼容**：悬停增强只在 `@media(hover:hover) and (pointer:fine)` 生效，
+  避免触屏点击后残留 hover 位移；键盘可达性用 `:focus-visible` 焦点环；
+  滚动条、打印样式单独处理。
+
+## 部署方式
+
+### 方式一：整站部署（当前默认）
+
+```bash
+pip install -r requirements.txt
+PORT=8080 python3 app.py
+```
+
+后端同时托管前端页面与 API，同源部署。
+
+### 方式二：前端托管到 Cloudflare Pages（推荐给「要自定义域名 / 要免费静态流量」的场景）
+
+```bash
+cd cf-pages
+./build.sh                                   # 同源
+./build.sh https://your-backend.example.com # 前端在 Pages，后端在别处
+npx wrangler pages deploy dist --project-name=xiaodou-codes
+```
+
+后端需放行 CORS —— `app.py` 已内置 `CORSMiddleware`，并显式允许 `X-User-Token`
+自定义头（该头会触发浏览器预检，不放行会导致跨域登录态失效）。
+
+前端 API 基址优先级：`?api=` 查询参数 > 构建时注入的 `__XD_API_BASE__` > 同源。
+抓取书签的提交地址同样跟随该基址，跨域部署时不会误打到 Pages 静态源。
+
+详细说明与 Cloudflare 额度数据见 [`cf-pages/README.md`](cf-pages/README.md)。
+
+> **不要把整个后端搬到 Pages。** Pages Functions 只跑 JS/TS，且没有 Cron Trigger、
+> 没有文件系统、没有线程池（Python Workers 也不行）；本项目的 `ThreadPoolExecutor`
+> （11 处）、后台调度线程、SQLite 文件存储都要重写，代价远大于收益。
+
+## 说明
+
+邀请码通常一次性使用，且账号每天验证次数有限，请优先使用标注「官方校验有效」的码。
+本工具仅聚合公开可见内容，与豆包 / 字节跳动无任何关联，不提供任何付费码或代激活服务。
