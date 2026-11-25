@@ -1,0 +1,41 @@
+name: 部署 GitHub Pages
+
+# 由私有源码仓库 xiaodou-codes 的定时任务推送站点产物后触发。
+# 产物已包含 index.html / css / js / img / data/*，此处只做 Pages 发布。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: 发布到 GitHub Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 检出站点
+        uses: actions/checkout@v4
+
+      - name: 配置 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传站点产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: 发布
+        id: deployment
+        uses: actions/deploy-pages@v4
