@@ -28,6 +28,7 @@ cp "$ROOT/.github/workflows/pages-site.yml" "$BUILD/.github/workflows/deploy.yml
 
 # 2) 准备工作目录：优先克隆远端历史，保留 Pages 配置
 rm -rf "$WORK"
+FORCE_FLAG=""
 if git clone -q --depth 1 "https://${TOKEN}@github.com/${REPO}.git" "$WORK" 2>/dev/null; then
   echo "已克隆远端历史"
 else
@@ -35,11 +36,12 @@ else
   rm -rf "$WORK"
   mkdir -p "$WORK"
   git -C "$WORK" init -q
-  git -C "$WORK" checkout -q -b main
+  # 空仓库无法 checkout -b，先建一个空提交作为基线
+  git -C "$WORK" -c user.name=wb -c user.email=wb@local commit -q --allow-empty -m "init"
+  git -C "$WORK" branch -M main
   # 新仓库没有历史，用强制推送覆盖
   FORCE_FLAG="-f"
 fi
-FORCE_FLAG="${FORCE_FLAG:-}"
 
 # 3) 用新产物覆盖工作目录内容（保留 .git）
 find "$WORK" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
@@ -57,3 +59,7 @@ git remote remove origin 2>/dev/null || true
 git remote add origin "https://${TOKEN}@github.com/${REPO}.git"
 git push ${FORCE_FLAG} origin HEAD:main
 echo "已推送到 ${REPO}"
+
+# 说明：用 PAT 推送会正常触发站点仓的 push 工作流（GitHub 仅阻止 PAT 触发自身所在仓库的
+# 某些场景），因此这里不再额外 dispatch，避免与 push 事件并发抢占 Pages 部署槽位。
+echo "站点仓 push 事件将自动触发 Pages 发布"
