@@ -29,10 +29,19 @@ cp "$ROOT/.github/workflows/pages-site.yml" "$BUILD/.github/workflows/deploy.yml
 # 2) 准备工作目录：优先克隆远端历史，保留 Pages 配置
 rm -rf "$WORK"
 FORCE_FLAG=""
-if git clone -q --depth 1 "https://${TOKEN}@github.com/${REPO}.git" "$WORK" 2>/dev/null; then
-  echo "已克隆远端历史"
-else
-  echo "远端克隆失败（首次部署 / 网络波动），初始化新仓库"
+CLONED=0
+for attempt in 1 2 3; do
+  if git clone -q --depth 1 "https://${TOKEN}@github.com/${REPO}.git" "$WORK" 2>/dev/null; then
+    echo "已克隆远端历史（第 ${attempt} 次尝试）"
+    CLONED=1
+    break
+  fi
+  echo "克隆失败（第 ${attempt} 次尝试），稍后重试"
+  rm -rf "$WORK"
+  sleep 8
+done
+if [ "$CLONED" -eq 0 ]; then
+  echo "远端克隆持续失败（网络波动 / GitHub 故障），初始化新仓库"
   rm -rf "$WORK"
   mkdir -p "$WORK"
   git -C "$WORK" init -q
@@ -57,8 +66,22 @@ fi
 git commit -q -m "chore: 更新站点快照 $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 git remote remove origin 2>/dev/null || true
 git remote add origin "https://${TOKEN}@github.com/${REPO}.git"
-git push ${FORCE_FLAG} origin HEAD:main
-echo "已推送到 ${REPO}"
+
+# 推送带重试（GitHub 网络波动 / 事故期间容易失败）
+PUSHED=0
+for attempt in 1 2 3 4; do
+  if git push ${FORCE_FLAG} origin HEAD:main 2>/dev/null; then
+    echo "已推送到 ${REPO}（第 ${attempt} 次尝试）"
+    PUSHED=1
+    break
+  fi
+  echo "推送失败（第 ${attempt} 次尝试），稍后重试"
+  sleep 10
+done
+if [ "$PUSHED" -eq 0 ]; then
+  echo "❌ 推送失败：GitHub 服务可能正在故障，请稍后重跑工作流"
+  exit 1
+fi
 
 # 说明：用 PAT 推送会正常触发站点仓的 push 工作流（GitHub 仅阻止 PAT 触发自身所在仓库的
 # 某些场景），因此这里不再额外 dispatch，避免与 push 事件并发抢占 Pages 部署槽位。
