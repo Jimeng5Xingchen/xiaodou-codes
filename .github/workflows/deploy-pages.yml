@@ -98,6 +98,10 @@ jobs:
             exit 0
           fi
           REPO="${PAGES_REPO:-Jimeng5Xingchen/xiaodou-pages}"
+          # 站点仓库的 Pages 部署工作流必须随产物一起保留，
+          # 否则每次推送都会把仓库覆盖成纯静态文件、导致 Pages 失去发布入口。
+          mkdir -p site/.github/workflows
+          cp .github/workflows/pages-site.yml site/.github/workflows/deploy.yml
           git init -q site
           cd site
           git checkout -q -b main
