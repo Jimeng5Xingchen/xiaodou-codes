@@ -27,6 +27,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import auth
+import admin
 import collector
 import mailer
 
@@ -474,6 +475,298 @@ def api_logout(request: Request) -> Response:
     resp = JSONResponse({"ok": True})
     resp.delete_cookie("xd_session")
     return resp
+
+
+# ---------------------------------------------------------------------------
+# 初始部署引导
+# ---------------------------------------------------------------------------
+
+@app.get("/api/setup/state")
+def api_setup_state() -> Response:
+    """是否已完成初始化。未完成时前端展示「创建管理员」引导页。"""
+    return JSONResponse({
+        "ok": True,
+        "initialized": auth.is_initialized(),
+        "mailReady": bool(mailer._effective_account()),
+        "provider": mailer.provider(),
+    })
+
+
+@app.post("/api/setup/init")
+async def api_setup_init(request: Request) -> Response:
+    """初始部署：填写账号 / 密码 / 邮箱，创建第一个管理员。"""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "请求体不是合法 JSON"}, status_code=400)
+    result = auth.setup_initial_admin(
+        account=str(body.get("account") or body.get("email") or ""),
+        password=str(body.get("password") or ""),
+        email=str(body.get("email") or body.get("account") or ""),
+        username=str(body.get("username") or ""),
+    )
+    return _auth_response(result)
+
+
+# ---------------------------------------------------------------------------
+# 账号注销
+# ---------------------------------------------------------------------------
+
+@app.post("/api/auth/delete-account")
+async def api_delete_account(request: Request) -> Response:
+    """注销当前账号（需密码确认）。"""
+    token = _token_from(request)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "请求体不是合法 JSON"}, status_code=400)
+    result = auth.delete_account(token, str(body.get("password") or ""))
+    if result.get("ok"):
+        resp = JSONResponse(result)
+        resp.delete_cookie("xd_session")
+        return resp
+    return JSONResponse(result)
+
+
+# ---------------------------------------------------------------------------
+# 管理端 API
+# ---------------------------------------------------------------------------
+
+def _require_admin(request: Request) -> tuple[dict | None, Response | None]:
+    """管理员鉴权：返回 (管理员, 错误响应)。"""
+    actor = admin.require_admin(_token_from(request))
+    if not actor:
+        return None, JSONResponse({"ok": False, "error": "需要管理员权限"}, status_code=403)
+    return actor, None
+
+
+@app.get("/api/admin/overview")
+def api_admin_overview(request: Request) -> Response:
+    """管理页总览：系统设置 + 用户组 + 授权发件邮箱。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    return JSONResponse(admin.get_settings_view())
+
+
+@app.post("/api/admin/settings")
+async def api_admin_settings(request: Request) -> Response:
+    """保存系统设置（白名单 / 特殊符号 / 注册开关）。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "请求体不是合法 JSON"}, status_code=400)
+    return JSONResponse(admin.update_settings(body))
+
+
+@app.get("/api/admin/users")
+def api_admin_users(request: Request) -> Response:
+    """用户列表（支持关键字 / 分组 / 状态筛选）。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    q = request.query_params.get("q", "")
+    group = request.query_params.get("group", "")
+    status = request.query_params.get("status", "")
+    limit = request.query_params.get("limit", "200")
+    try:
+        gid = int(group) if group not in ("", None) else None
+    except ValueError:
+        gid = None
+    try:
+        lim = int(limit)
+    except ValueError:
+        lim = 200
+    return JSONResponse(admin.list_users(q, gid, status, lim))
+
+
+@app.post("/api/admin/users/{user_id}/status")
+async def api_admin_user_status(user_id: int, request: Request) -> Response:
+    """封号 / 解封。"""
+    actor, err = _require_admin(request)
+    if err:
+        return err
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "请求体不是合法 JSON"}, status_code=400)
+    return JSONResponse(
+        admin.set_user_status(actor["id"], user_id, str(body.get("status") or ""),
+                              str(body.get("reason") or ""))
+    )
+
+
+@app.post("/api/admin/users/{user_id}/group")
+async def api_admin_user_group(user_id: int, request: Request) -> Response:
+    """修改用户所属分类（用户组）。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "请求体不是合法 JSON"}, status_code=400)
+    try:
+        gid = int(body.get("groupId") or 0)
+    except (TypeError, ValueError):
+        return JSONResponse({"ok": False, "error": "分组参数不合法"}, status_code=400)
+    return JSONResponse(admin.assign_group(user_id, gid))
+
+
+@app.post("/api/admin/users/{user_id}/role")
+async def api_admin_user_role(user_id: int, request: Request) -> Response:
+    """设置用户角色（管理员 / 普通用户）。"""
+    actor, err = _require_admin(request)
+    if err:
+        return err
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "请求体不是合法 JSON"}, status_code=400)
+    return JSONResponse(admin.set_user_role(actor["id"], user_id, str(body.get("role") or "")))
+
+
+@app.post("/api/admin/users/{user_id}/password")
+async def api_admin_user_password(user_id: int, request: Request) -> Response:
+    """重置指定用户密码。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "请求体不是合法 JSON"}, status_code=400)
+    return JSONResponse(admin.reset_user_password(user_id, str(body.get("password") or "")))
+
+
+@app.delete("/api/admin/users/{user_id}")
+def api_admin_delete_user(user_id: int, request: Request) -> Response:
+    """删除用户。"""
+    actor, err = _require_admin(request)
+    if err:
+        return err
+    return JSONResponse(admin.delete_user(actor["id"], user_id))
+
+
+@app.get("/api/admin/groups")
+def api_admin_groups(request: Request) -> Response:
+    """用户组列表。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    return JSONResponse({"ok": True, "groups": admin.list_groups()})
+
+
+@app.post("/api/admin/groups")
+async def api_admin_create_group(request: Request) -> Response:
+    """新建用户组。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "请求体不是合法 JSON"}, status_code=400)
+    return JSONResponse(admin.create_group(str(body.get("name") or ""),
+                                           str(body.get("description") or "")))
+
+
+@app.put("/api/admin/groups/{group_id}")
+async def api_admin_update_group(group_id: int, request: Request) -> Response:
+    """修改用户组。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "请求体不是合法 JSON"}, status_code=400)
+    name = body.get("name") if "name" in body else None
+    desc = body.get("description") if "description" in body else None
+    return JSONResponse(admin.update_group(group_id, name, desc))
+
+
+@app.delete("/api/admin/groups/{group_id}")
+def api_admin_delete_group(group_id: int, request: Request) -> Response:
+    """删除用户组。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    return JSONResponse(admin.delete_group(group_id))
+
+
+@app.get("/api/admin/mail-accounts")
+def api_admin_mail_accounts(request: Request) -> Response:
+    """系统授权发件邮箱列表。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    return JSONResponse({"ok": True, "mailAccounts": admin.list_mail_accounts()})
+
+
+@app.post("/api/admin/mail-accounts")
+async def api_admin_save_mail_account(request: Request) -> Response:
+    """新增 / 更新授权发件邮箱。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "请求体不是合法 JSON"}, status_code=400)
+    return JSONResponse(
+        admin.save_mail_account(
+            account_id=int(body.get("id") or 0),
+            address=str(body.get("address") or ""),
+            provider=str(body.get("provider") or "smtp"),
+            host=str(body.get("host") or ""),
+            port=body.get("port") or 465,
+            use_ssl=bool(body.get("useSsl", True)),
+            password=str(body.get("password") or ""),
+            enabled=bool(body.get("enabled", True)),
+            is_default=bool(body.get("isDefault", False)),
+            note=str(body.get("note") or ""),
+        )
+    )
+
+
+@app.post("/api/admin/mail-accounts/{account_id}/default")
+def api_admin_default_mail_account(account_id: int, request: Request) -> Response:
+    """设为默认发件邮箱。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    return JSONResponse(admin.set_default_mail_account(account_id))
+
+
+@app.delete("/api/admin/mail-accounts/{account_id}")
+def api_admin_delete_mail_account(account_id: int, request: Request) -> Response:
+    """删除授权发件邮箱。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    return JSONResponse(admin.delete_mail_account(account_id))
+
+
+@app.post("/api/admin/mail-accounts/test")
+async def api_admin_test_mail_account(request: Request) -> Response:
+    """测试某个授权发件邮箱能否正常发信。"""
+    _, err = _require_admin(request)
+    if err:
+        return err
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "请求体不是合法 JSON"}, status_code=400)
+    to = str(body.get("to") or "").strip()
+    if not to:
+        return JSONResponse({"ok": False, "error": "请填写测试收件邮箱"})
+    account_id = int(body.get("id") or 0)
+    result = mailer.test_account(account_id, to)
+    return JSONResponse(result)
 
 
 @app.get("/api/refresh")

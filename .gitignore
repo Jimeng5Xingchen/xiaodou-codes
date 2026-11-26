@@ -6,3 +6,4 @@ cf-pages/dist/
 site/
 site_build/
 site_work/
+mail_config.json

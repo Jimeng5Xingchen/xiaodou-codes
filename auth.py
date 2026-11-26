@@ -13,11 +13,13 @@ import sqlite3
 import threading
 import time
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Any
 
+import db as store
 import mailer
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "users.sqlite3")
+DB_PATH = store.DB_PATH
 CODE_TTL = 600          # 验证码 10 分钟
 SESSION_TTL = 30 * 86400  # 会话 30 天
 SEND_COOLDOWN = 60      # 同邮箱 60 秒只能发一次
@@ -49,6 +51,8 @@ def sign_token(user: dict[str, Any]) -> str:
         "bio": user.get("bio", "") or "",
         "gender": user.get("gender", "") or "",
         "has_password": bool(user.get("has_password")),
+        "role": user.get("role", "user") or "user",
+        "group_id": int(user.get("group_id", 0) or 0),
         "exp": int(time.time()) + SESSION_TTL,
     }
     body = _b64e(json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode())
@@ -75,77 +79,19 @@ def parse_token(token: str) -> dict[str, Any] | None:
             "bio": payload.get("bio", ""),
             "gender": payload.get("gender", ""),
             "has_password": bool(payload.get("has_password")),
+            "role": payload.get("role", "user") or "user",
+            "group_id": int(payload.get("group_id", 0) or 0),
         }
     except Exception:
         return None
 
 
-@contextmanager
 def _db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-        conn.commit()
-    finally:
-        conn.close()
+    return store.db()
 
 
 def init_db() -> None:
-    with _db() as conn:
-        conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS users(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT UNIQUE NOT NULL,
-                username TEXT DEFAULT '',
-                bio TEXT DEFAULT '',
-                gender TEXT DEFAULT '',
-                password_hash TEXT DEFAULT '',
-                password_salt TEXT DEFAULT '',
-                created_at INTEGER NOT NULL,
-                last_login INTEGER NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS codes(
-                email TEXT PRIMARY KEY,
-                code TEXT NOT NULL,
-                expires_at INTEGER NOT NULL,
-                sent_at INTEGER NOT NULL,
-                attempts INTEGER DEFAULT 0,
-                purpose TEXT DEFAULT 'login'
-            );
-            CREATE TABLE IF NOT EXISTS sessions(
-                token_hash TEXT PRIMARY KEY,
-                user_id INTEGER NOT NULL,
-                expires_at INTEGER NOT NULL,
-                created_at INTEGER NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS submissions(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                code TEXT NOT NULL,
-                user_id INTEGER NOT NULL,
-                source TEXT DEFAULT '',
-                created_at INTEGER NOT NULL,
-                UNIQUE(code, user_id)
-            );
-            CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
-            """
-        )
-        # 兼容旧库：补齐后加的资料列
-        cols = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
-        for col, ddl in (
-            ("username", "TEXT DEFAULT ''"),
-            ("bio", "TEXT DEFAULT ''"),
-            ("gender", "TEXT DEFAULT ''"),
-            ("password_hash", "TEXT DEFAULT ''"),
-            ("password_salt", "TEXT DEFAULT ''"),
-        ):
-            if col not in cols:
-                conn.execute(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
-        code_cols = {row["name"] for row in conn.execute("PRAGMA table_info(codes)")}
-        if "purpose" not in code_cols:
-            conn.execute("ALTER TABLE codes ADD COLUMN purpose TEXT DEFAULT 'login'")
+    store.init_db()
 
 
 def _hash(token: str) -> str:
@@ -185,11 +131,79 @@ def valid_email(email: str) -> bool:
     return bool(email) and len(email) <= 254 and bool(EMAIL_RE.match(email))
 
 
+# ---------------------------------------------------------------------------
+# 注册策略（由管理端配置）
+# ---------------------------------------------------------------------------
+
+# 严格模式：只允许「字母数字 . _ - +」等常见邮箱字符，
+# 关闭特殊符号后进一步收紧为「字母数字与 . - _」的白名单形态。
+_STRICT_EMAIL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._%+-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
+_PLAIN_EMAIL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
+
+
+def allow_special_email() -> bool:
+    """是否允许带特殊符号（+ % 等）的邮箱注册。默认允许。"""
+    return store.get_setting("allow_special_email", "1") != "0"
+
+
+def email_whitelist() -> list[str]:
+    """邮箱白名单（每行一个，支持完整邮箱或 @域名 形式）。"""
+    raw = store.get_setting("email_whitelist", "")
+    return [line.strip() for line in raw.replace(",", "\n").split("\n") if line.strip()]
+
+
+def _email_in_whitelist(email: str, whitelist: list[str]) -> bool:
+    """邮箱是否命中白名单（支持完整邮箱与 @域名 两种写法）。"""
+    email = (email or "").strip().lower()
+    for item in whitelist:
+        item = item.strip().lower()
+        if not item:
+            continue
+        if item.startswith("@"):
+            if email.endswith(item):
+                return True
+        elif item == email:
+            return True
+    return False
+
+
+def check_email_allowed(email: str) -> tuple[bool, str]:
+    """注册 / 换绑邮箱前的策略校验。返回 (是否允许, 错误说明)。"""
+    email = (email or "").strip().lower()
+    if not email:
+        return False, "邮箱不能为空"
+    if not valid_email(email):
+        return False, "邮箱格式不正确"
+    if not allow_special_email() and not _PLAIN_EMAIL_RE.match(email):
+        return False, "当前不允许使用含特殊符号的邮箱（如 + % 等）"
+    whitelist = email_whitelist()
+    if whitelist and not _email_in_whitelist(email, whitelist):
+        return False, "该邮箱不在允许注册的白名单内"
+    return True, ""
+
+
+def registration_enabled() -> bool:
+    """是否开放新用户注册（管理端可关闭）。"""
+    return store.get_setting("registration_enabled", "1") != "0"
+
+
 def send_code(email: str, purpose: str = "login") -> dict[str, Any]:
     """发送验证码。返回 {ok, error, dev_code, cooldown}。"""
     email = (email or "").strip().lower()
     if not valid_email(email):
         return {"ok": False, "error": "邮箱格式不正确"}
+    # 特殊符号策略：任何发码场景都生效
+    if purpose in ("login", "change_email") and not allow_special_email():
+        if not _PLAIN_EMAIL_RE.match(email):
+            return {"ok": False, "error": "当前不允许使用含特殊符号的邮箱（如 + % 等）"}
+    # 白名单只约束「尚未注册」的邮箱，避免把已有用户挡在门外
+    if purpose in ("login", "change_email"):
+        whitelist = email_whitelist()
+        if whitelist and not _email_in_whitelist(email, whitelist):
+            with _db() as c2:
+                exists = c2.execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone()
+            if not exists:
+                return {"ok": False, "error": "该邮箱不在允许注册的白名单内"}
     now = int(time.time())
     with _lock, _db() as conn:
         row = conn.execute(
@@ -250,6 +264,9 @@ def verify_code(
             conn.execute("UPDATE users SET last_login=? WHERE id=?", (now, user_id))
             is_new = False
         else:
+            # 全新用户 = 注册，受「是否开放注册」开关约束
+            if not registration_enabled():
+                return {"ok": False, "error": "本站当前已关闭新用户注册"}
             cur = conn.execute(
                 "INSERT INTO users(email,created_at,last_login) VALUES(?,?,?)", (email, now, now)
             )
@@ -257,7 +274,8 @@ def verify_code(
             is_new = True
 
         profile = conn.execute(
-            "SELECT username, bio, gender FROM users WHERE id=?", (user_id,)
+            "SELECT username, bio, gender, role, status, group_id FROM users WHERE id=?",
+            (user_id,),
         ).fetchone()
         user_obj = {
             "id": user_id,
@@ -266,7 +284,17 @@ def verify_code(
             "bio": (profile["bio"] if profile else "") or "",
             "gender": (profile["gender"] if profile else "") or "",
             "has_password": bool(user["password_hash"]) if user else False,
+            "role": (profile["role"] if profile else "user") or "user",
+            "status": (profile["status"] if profile else "active") or "active",
+            "group_id": int((profile["group_id"] if profile else 0) or 0),
         }
+        # 已封禁的账号禁止登录
+        if user_obj["status"] == "banned":
+            reason = conn.execute(
+                "SELECT ban_reason FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+            note = (reason["ban_reason"] if reason else "") or ""
+            return {"ok": False, "error": ("该账号已被封禁" + (f"：{note}" if note else ""))}
         # 兼容：仍写入 session 表；但登录态以无状态 token 为准，不依赖它
         token = ""
         if create_session:
@@ -287,15 +315,17 @@ def verify_code(
 
 def _public_user(row) -> dict[str, Any]:
     """把 users 行转为公开用户信息（不含密码）。"""
+    keys = row.keys()
     return {
         "id": row["id"],
         "email": row["email"],
-        "username": (row["username"] if "username" in row.keys() else "") or "",
-        "bio": (row["bio"] if "bio" in row.keys() else "") or "",
-        "gender": (row["gender"] if "gender" in row.keys() else "") or "",
-        "has_password": bool(
-            ("password_hash" in row.keys() and row["password_hash"])
-        ),
+        "username": (row["username"] if "username" in keys else "") or "",
+        "bio": (row["bio"] if "bio" in keys else "") or "",
+        "gender": (row["gender"] if "gender" in keys else "") or "",
+        "has_password": bool(("password_hash" in keys and row["password_hash"])),
+        "role": (row["role"] if "role" in keys else "user") or "user",
+        "status": (row["status"] if "status" in keys else "active") or "active",
+        "group_id": int((row["group_id"] if "group_id" in keys else 0) or 0),
     }
 
 
@@ -312,6 +342,9 @@ def login_with_password(email: str, password: str) -> dict[str, Any]:
             return {"ok": False, "error": "邮箱或密码错误（该账号可能未设置密码）"}
         if not _check_password(password, row["password_hash"], row["password_salt"] or ""):
             return {"ok": False, "error": "邮箱或密码错误"}
+        if (row["status"] if "status" in row.keys() else "active") == "banned":
+            note = (row["ban_reason"] if "ban_reason" in row.keys() else "") or ""
+            return {"ok": False, "error": "该账号已被封禁" + (f"：{note}" if note else "")}
         conn.execute("UPDATE users SET last_login=? WHERE id=?", (now, row["id"]))
         user = _public_user(row)
         token = sign_token(user)
@@ -390,7 +423,7 @@ def user_by_token(token: str) -> dict[str, Any] | None:
         with _db() as conn:
             row = conn.execute(
                 "SELECT u.id, u.email, u.username, u.bio, u.gender, u.password_hash, "
-                "u.created_at, u.last_login "
+                "u.role, u.status, u.group_id, u.created_at, u.last_login "
                 "FROM sessions s JOIN users u ON u.id=s.user_id "
                 "WHERE s.token_hash=? AND s.expires_at>?",
                 (_hash(token), now),
@@ -406,6 +439,9 @@ def user_by_token(token: str) -> dict[str, Any] | None:
         "bio": row["bio"] or "",
         "gender": row["gender"] or "",
         "has_password": bool(row["password_hash"]),
+        "role": row["role"] or "user",
+        "status": row["status"] or "active",
+        "group_id": int(row["group_id"] or 0),
     }
 
 
@@ -435,7 +471,8 @@ def user_by_id(user_id: int) -> dict[str, Any] | None:
         return None
     with _db() as conn:
         row = conn.execute(
-            "SELECT id, email, username, bio, gender FROM users WHERE id=?", (user_id,)
+            "SELECT id, email, username, bio, gender, role, status, group_id "
+            "FROM users WHERE id=?", (user_id,)
         ).fetchone()
     if not row:
         return None
@@ -445,6 +482,9 @@ def user_by_id(user_id: int) -> dict[str, Any] | None:
         "username": row["username"] or "",
         "bio": row["bio"] or "",
         "gender": row["gender"] or "",
+        "role": row["role"] or "user",
+        "status": row["status"] or "active",
+        "group_id": int(row["group_id"] or 0),
     }
 
 
@@ -561,3 +601,141 @@ def stats(token: str) -> dict[str, Any]:
             "SELECT COUNT(*) AS c FROM submissions WHERE user_id=?", (user["id"],)
         ).fetchone()["c"]
     return {"submitted": n}
+
+
+# ---------------------------------------------------------------------------
+# 账号注销
+# ---------------------------------------------------------------------------
+
+def delete_account(token: str, password: str = "") -> dict[str, Any]:
+    """注销当前账号：清空资料、密码、分享记录与登录态。
+
+    要求校验密码（已设置密码时）；未设置密码的账号可用邮箱验证码注销，
+    由调用方先完成 verify_code(purpose="delete_account")。
+    """
+    user = user_by_token(token)
+    if not user:
+        return {"ok": False, "error": "请先登录，或登录已过期"}
+    with _lock, _db() as conn:
+        row = conn.execute(
+            "SELECT password_hash, password_salt FROM users WHERE id=?", (user["id"],)
+        ).fetchone()
+        if row and row["password_hash"]:
+            if not password:
+                return {"ok": False, "error": "请输入密码以确认注销", "needPassword": True}
+            if not _check_password(password, row["password_hash"], row["password_salt"] or ""):
+                return {"ok": False, "error": "密码不正确"}
+        # 清空个人资料与凭证，保留账号行以便统计
+        conn.execute(
+            "UPDATE users SET username='', bio='', gender='', password_hash='', "
+            "password_salt='', status='deleted', group_id=0 WHERE id=?",
+            (user["id"],),
+        )
+        conn.execute("DELETE FROM submissions WHERE user_id=?", (user["id"],))
+        conn.execute("DELETE FROM sessions WHERE user_id=?", (user["id"],))
+        conn.execute("DELETE FROM codes WHERE email=?", (user["email"],))
+    return {"ok": True, "message": "账号已注销，相关资料与分享记录已清除"}
+
+
+# ---------------------------------------------------------------------------
+# 管理员：初始化
+# ---------------------------------------------------------------------------
+
+def is_initialized() -> bool:
+    """系统是否已完成初始部署（创建过管理员）。"""
+    if store.get_setting("setup_done", "") == "1":
+        return True
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS c FROM users WHERE role='admin'"
+        ).fetchone()
+    return bool(row and row["c"])
+
+
+def count_admins() -> int:
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS c FROM users WHERE role='admin' AND status!='deleted'"
+        ).fetchone()
+    return int(row["c"]) if row else 0
+
+
+def setup_initial_admin(
+    account: str, password: str, email: str, username: str = ""
+) -> dict[str, Any]:
+    """初始部署：创建第一个管理员账号。
+
+    account  登录账号（邮箱）
+    password 登录密码
+    email    绑定的邮箱
+    """
+    if is_initialized():
+        return {"ok": False, "error": "系统已完成初始化，无法重复执行"}
+    email = (email or "").strip().lower()
+    account = (account or "").strip().lower()
+    if not account:
+        account = email
+    if not valid_email(account):
+        return {"ok": False, "error": "登录账号必须是合法邮箱"}
+    if not valid_email(email):
+        return {"ok": False, "error": "邮箱格式不正确"}
+    if not valid_password(password):
+        return {"ok": False, "error": "密码需 6-32 位"}
+    if account != email:
+        with _db() as conn:
+            exists = conn.execute("SELECT 1 FROM users WHERE email=?", (account,)).fetchone()
+        if exists:
+            return {"ok": False, "error": "该账号已被占用"}
+    digest, salt = _make_password(password)
+    now = int(time.time())
+    with _lock, _db() as conn:
+        # 兜底：并发下只允许一个初始化
+        exists = conn.execute(
+            "SELECT 1 FROM users WHERE role='admin'"
+        ).fetchone()
+        if exists:
+            return {"ok": False, "error": "系统已完成初始化，无法重复执行"}
+        try:
+            conn.execute(
+                "INSERT INTO users(email,username,bio,gender,password_hash,password_salt,"
+                "role,status,group_id,created_at,last_login) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    account,
+                    (username or "").strip()[:20] or "管理员",
+                    "",
+                    "",
+                    digest,
+                    salt,
+                    "admin",
+                    "active",
+                    0,
+                    now,
+                    now,
+                ),
+            )
+        except sqlite3.IntegrityError:
+            return {"ok": False, "error": "该账号已被占用"}
+        # 记录绑定邮箱与初始化标记（复用同一连接，避免嵌套开连接锁库）
+        store.set_setting_conn(conn, "admin_email", email)
+        store.set_setting_conn(conn, "setup_done", "1")
+        store.set_setting_conn(conn, "setup_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    user = user_by_id_by_email(account)
+    if not user:
+        return {"ok": False, "error": "初始化异常，请重试"}
+    user["role"] = "admin"
+    user["status"] = "active"
+    user["group_id"] = 0
+    token = sign_token(user)
+    return {"ok": True, "message": "初始化完成，已创建管理员账号", "token": token, "user": user}
+
+
+def user_by_id_by_email(email: str) -> dict[str, Any] | None:
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT id, email, username, bio, gender, role, status, group_id "
+            "FROM users WHERE email=?", ((email or "").strip().lower(),)
+        ).fetchone()
+    if not row:
+        return None
+    return _public_user(row)

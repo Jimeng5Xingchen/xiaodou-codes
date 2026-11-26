@@ -1,0 +1,161 @@
+/* ==========================================================================
+   管理页样式：用户治理 / 用户组 / 系统设置 / 授权发件邮箱
+   ========================================================================== */
+
+.admin-wrap{display:flex;flex-direction:column;gap:14px;max-width:900px}
+
+.admin-card{
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:16px 18px;
+}
+.admin-card > h3{
+  font-size:14.5px;margin:0 0 4px;font-weight:650;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.admin-card > .adm-tip{font-size:12px;color:var(--dim);margin:0 0 12px;line-height:1.65}
+.admin-card h4{font-size:13px;margin:16px 0 8px;font-weight:650;color:var(--fg)}
+.admin-card h4:first-of-type{margin-top:10px}
+
+.adm-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.adm-row + .adm-row{margin-top:8px}
+.adm-grow{flex:1;min-width:150px}
+
+.adm-input, .adm-select, .adm-textarea{
+  background:var(--bg);border:1px solid var(--line);color:var(--fg);
+  border-radius:9px;padding:8px 11px;font-size:13px;font-family:inherit;
+  box-sizing:border-box;width:100%;
+}
+.adm-input:focus,.adm-select:focus,.adm-textarea:focus{
+  outline:none;border-color:var(--accent2);
+}
+.adm-textarea{min-height:92px;resize:vertical;line-height:1.7;font-size:12.5px}
+.adm-select{width:auto;min-width:120px;cursor:pointer}
+
+/* 设置项 */
+.adm-setting{
+  display:flex;align-items:flex-start;gap:10px;padding:10px 0;
+  border-bottom:1px solid var(--line);
+}
+.adm-setting:last-child{border-bottom:none}
+.adm-setting-txt{flex:1;min-width:0;line-height:1.55}
+.adm-setting-txt b{display:block;font-size:13px;font-weight:600;margin-bottom:2px}
+.adm-setting-txt i{font-style:normal;font-size:11.5px;color:var(--dim);display:block}
+
+/* 用户表格 */
+.adm-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.adm-table-wrap::-webkit-scrollbar{display:none}
+.adm-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:620px}
+.adm-table th{
+  text-align:left;font-size:11.5px;color:var(--dim);font-weight:600;
+  padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+.adm-table td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.adm-table tr:last-child td{border-bottom:none}
+.adm-table tbody tr:hover{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.adm-table .adm-email{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+.adm-table .adm-time{color:var(--dim);font-size:11.5px;white-space:nowrap}
+.adm-table .adm-act{text-align:right;white-space:nowrap}
+
+.adm-badge{
+  font-size:10.5px;padding:1px 7px;border-radius:999px;
+  border:1px solid var(--line);color:var(--dim);white-space:nowrap;display:inline-block;
+}
+.adm-badge.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.adm-badge.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,transparent)}
+.adm-badge.admin{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
+.adm-badge.group{color:var(--accent2);border-color:color-mix(in srgb,var(--accent2) 45%,transparent)}
+
+.adm-btn{
+  font-size:11.5px;padding:4px 9px;border-radius:7px;margin-left:5px;
+  white-space:nowrap;
+}
+.adm-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.adm-btn.warn:hover{border-color:var(--warn);color:var(--warn)}
+
+/* 工具条 */
+.adm-toolbar{
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;
+}
+.adm-toolbar .adm-input{flex:1;min-width:160px;width:auto}
+.adm-count{font-size:11.5px;color:var(--dim);margin-left:auto;white-space:nowrap}
+
+/* 用户组 */
+.adm-groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:9px}
+.adm-group{
+  background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+  padding:10px 12px;display:flex;flex-direction:column;gap:3px;
+}
+.adm-group .gname{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.adm-group .gdesc{font-size:11.5px;color:var(--dim);line-height:1.5;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-group .gmeta{font-size:11px;color:var(--dim);margin-top:4px}
+.adm-group .gops{margin-top:7px;display:flex;gap:5px;flex-wrap:wrap}
+
+/* 空状态 */
+.adm-empty{color:var(--dim);font-size:12.5px;padding:18px 0;text-align:center}
+
+/* 授权邮箱卡片 */
+.adm-mail{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 0;border-bottom:1px solid var(--line);
+}
+.adm-mail:last-child{border-bottom:none}
+.adm-mail .maddr{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;flex:1;min-width:150px}
+.adm-mail .mhost{font-size:11.5px;color:var(--dim)}
+.adm-mail .mops{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap}
+
+/* 初始部署引导 */
+.setup-mask{
+  position:fixed;inset:0;z-index:200;display:none;
+  align-items:center;justify-content:center;padding:18px;
+  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  overflow-y:auto;
+}
+.setup-mask.show{display:flex}
+.setup-box{
+  width:100%;max-width:420px;background:var(--panel);
+  border:1px solid var(--line);border-radius:16px;padding:26px 24px;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);
+}
+.setup-box h2{font-size:19px;margin:0 0 6px;font-weight:700}
+.setup-box .stip{font-size:12.5px;color:var(--dim);margin:0 0 18px;line-height:1.7}
+.setup-box label{display:block;font-size:12.5px;color:var(--dim);margin:13px 0 5px}
+.setup-box .slabel{display:flex;align-items:baseline;gap:6px}
+.setup-box .slabel em{font-style:normal;font-size:11px;color:var(--warn)}
+.setup-box input{
+  width:100%;background:var(--bg);border:1px solid var(--line);color:var(--fg);
+  border-radius:9px;padding:9px 11px;font-size:14px;font-family:inherit;box-sizing:border-box;
+}
+.setup-box input:focus{outline:none;border-color:var(--accent2)}
+.setup-box .smsg{font-size:12.5px;margin-top:12px;min-height:18px;line-height:1.6}
+.setup-box .smsg.ok{color:var(--ok)}
+.setup-box .smsg.err{color:var(--bad)}
+.setup-box .sbtn{width:100%;margin-top:18px;padding:11px;font-size:14px;font-weight:600}
+.setup-box .shint{
+  font-size:11.5px;color:var(--dim);margin-top:12px;line-height:1.65;
+  padding-top:12px;border-top:1px solid var(--line);
+}
+.setup-box .shint code{
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;
+  background:var(--panel2);padding:1px 5px;border-radius:4px;
+}
+
+/* 危险操作区 */
+.danger-zone{border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.danger-zone > h3{color:var(--bad)}
+.danger-note{font-size:12px;color:var(--dim);line-height:1.7;margin:0 0 12px}
+
+/* 移动端 */
+@media(max-width:720px){
+  .admin-wrap{gap:11px}
+  .admin-card{padding:13px 13px;border-radius:11px}
+  .adm-row{gap:6px}
+  .adm-row .adm-input,.adm-row .adm-select{width:100%}
+  .adm-toolbar .adm-input{flex:1 1 100%}
+  .adm-count{margin-left:0;width:100%}
+  .adm-groups{grid-template-columns:repeat(2,1fr)}
+  .adm-mail .mops{margin-left:0;width:100%}
+  .adm-table{min-width:520px}
+  .setup-box{padding:22px 18px;border-radius:14px}
+}

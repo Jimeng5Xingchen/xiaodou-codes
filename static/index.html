@@ -24,7 +24,8 @@
   try{ sc=new URLSearchParams(location.search).get('sharecode')||''; }catch(e){}
   var ASSETS=[
     ['css','text/css','tokens.css'],['css','text/css','base.css'],['css','text/css','glass.css'],
-    ['css','text/css','material.css'],['css','text/css','ui-panel.css'],['css','text/css','responsive.css']
+    ['css','text/css','material.css'],['css','text/css','ui-panel.css'],['css','text/css','admin.css'],
+    ['css','text/css','responsive.css']
   ];
   for(var i=0;i<ASSETS.length;i++){
     var dir=ASSETS[i][0],type=ASSETS[i][1],file=ASSETS[i][2];
@@ -151,6 +152,7 @@
     <button class="nav-tab" data-page="community">社区找码</button>
     <button class="nav-tab" data-page="submit">提交邀请码</button>
     <button class="nav-tab" data-page="account">我的账号</button>
+    <button class="nav-tab" data-page="admin" id="adminTab" hidden>管理</button>
     <button class="nav-tab" data-page="about">使用说明</button>
   </nav>
 
@@ -311,9 +313,143 @@
       </div>
 
       <button id="logoutBtn" style="margin-top:16px">退出登录</button>
+
+      <div class="divider"></div>
+      <div class="danger-zone" style="border:1px solid color-mix(in srgb,var(--bad) 40%,transparent);border-radius:12px;padding:14px 15px">
+        <h3 style="font-size:14px;margin:0 0 6px;color:var(--bad)">注销账号</h3>
+        <p class="danger-note" style="font-size:12px;color:var(--dim);line-height:1.7;margin:0 0 12px">
+          注销后将清除你的个人资料、登录密码与全部分享记录，且无法恢复。若只是不想继续使用，退出登录即可。
+        </p>
+        <div class="mrow">
+          <input type="password" id="delPwd" placeholder="输入登录密码以确认" autocomplete="current-password">
+          <button id="delAccountBtn" style="white-space:nowrap">注销账号</button>
+        </div>
+        <div class="mmsg" id="delMsg"></div>
+      </div>
     </div>
   </section>
 
+
+  <!-- 管理页（仅管理员可见） -->
+  <section class="page" id="page-admin" hidden>
+    <div id="adminPanel" class="admin-wrap">
+
+      <!-- 系统邮箱授权 -->
+      <div class="admin-card">
+        <h3>系统邮箱授权 <span class="adm-badge" id="mailCount">0</span></h3>
+        <p class="adm-tip">登记用于发送验证码的发件邮箱（需在邮箱服务商处开启 SMTP 并取得授权码）。设为「默认」的账号会优先用于发信；修改后立即生效，无需重启。</p>
+        <div id="mailList"><div class="adm-empty">尚未配置发件邮箱。</div></div>
+        <h4>添加 / 编辑发件邮箱</h4>
+        <div class="adm-row">
+          <input class="adm-input adm-grow" id="mailAddr" type="email" placeholder="发件邮箱，如 your@163.com">
+          <select class="adm-select" id="mailProvider">
+            <option value="smtp">SMTP</option>
+            <option value="dev">开发模式（验证码直显）</option>
+          </select>
+        </div>
+        <div class="adm-row">
+          <input class="adm-input adm-grow" id="mailHost" placeholder="SMTP 服务器，如 smtp.163.com">
+          <input class="adm-input" id="mailPort" type="number" value="465" placeholder="端口" style="max-width:100px">
+        </div>
+        <div class="adm-row">
+          <input class="adm-input adm-grow" id="mailPass" type="password" placeholder="授权码 / 密码（编辑时留空表示不修改）">
+          <input class="adm-input" id="mailNote" placeholder="备注（选填）" style="max-width:180px">
+        </div>
+        <div class="adm-row">
+          <label class="tp-switch" style="padding:0">
+            <input type="checkbox" id="mailSsl" checked>
+            <span class="tp-switch-box"><span class="tp-switch-knob"></span></span>
+          </label>
+          <span style="font-size:12px;color:var(--dim)">使用 SSL</span>
+          <label class="tp-switch" style="padding:0">
+            <input type="checkbox" id="mailEnabled" checked>
+            <span class="tp-switch-box"><span class="tp-switch-knob"></span></span>
+          </label>
+          <span style="font-size:12px;color:var(--dim)">启用</span>
+          <label class="tp-switch" style="padding:0">
+            <input type="checkbox" id="mailDefault">
+            <span class="tp-switch-box"><span class="tp-switch-knob"></span></span>
+          </label>
+          <span style="font-size:12px;color:var(--dim)">设为默认</span>
+        </div>
+        <div class="adm-row">
+          <button id="mailSaveBtn" class="primary">保存发件邮箱</button>
+          <button id="mailCancelBtn" hidden>取消编辑</button>
+          <input class="adm-input" id="mailTestTo" placeholder="测试收件邮箱（选填）" style="max-width:220px">
+          <button id="mailTestBtn">发送测试</button>
+        </div>
+        <div class="mmsg" id="mailMsg"></div>
+      </div>
+
+      <!-- 注册策略 -->
+      <div class="admin-card">
+        <h3>注册策略</h3>
+        <p class="adm-tip">控制谁可以在本站注册与登录。</p>
+        <label class="tp-switch">
+          <input type="checkbox" id="setAllowSpecial">
+          <span class="tp-switch-box"><span class="tp-switch-knob"></span></span>
+          <span class="tp-switch-text">
+            <b>允许含特殊符号的邮箱注册</b>
+            <i>关闭后仅允许字母、数字与 . _ - 组成的邮箱（如 user+tag@x.com 将不被接受）</i>
+          </span>
+        </label>
+        <label class="tp-switch">
+          <input type="checkbox" id="setRegEnabled">
+          <span class="tp-switch-box"><span class="tp-switch-knob"></span></span>
+          <span class="tp-switch-text">
+            <b>开放新用户注册</b>
+            <i>关闭后新邮箱将无法通过验证码注册，已注册用户仍可正常登录</i>
+          </span>
+        </label>
+        <h4>邮箱白名单</h4>
+        <p class="adm-tip" style="margin-bottom:8px">每行一个，支持完整邮箱（a@x.com）或域名形式（@x.com）。留空表示不限制。该名单只约束「尚未注册」的邮箱，不影响已有用户登录。</p>
+        <textarea class="adm-textarea" id="setWhitelist" placeholder="@example.com&#10;allowed@other.com"></textarea>
+        <div class="adm-row" style="margin-top:10px">
+          <button id="setSaveBtn" class="primary">保存注册策略</button>
+          <span class="mmsg" id="setMsg"></span>
+        </div>
+      </div>
+
+      <!-- 用户组 -->
+      <div class="admin-card">
+        <h3>用户组 <span class="adm-badge" id="groupCount">0</span></h3>
+        <p class="adm-tip">用分组给用户做分类，便于批量识别与筛选。删除分组时，组内成员会自动回到「未分组」。</p>
+        <div class="adm-groups" id="groupList"><div class="adm-empty">尚未创建用户组。</div></div>
+        <h4>新建用户组</h4>
+        <div class="adm-row">
+          <input class="adm-input adm-grow" id="groupName" placeholder="分组名称，如「内测用户」">
+          <input class="adm-input adm-grow" id="groupDesc" placeholder="分组说明（选填）">
+          <button id="groupAddBtn" class="primary">创建</button>
+        </div>
+        <div class="mmsg" id="groupMsg"></div>
+      </div>
+
+      <!-- 用户管理 -->
+      <div class="admin-card">
+        <h3>用户管理 <span class="adm-badge" id="userCount">0</span></h3>
+        <p class="adm-tip">可修改用户分类、封禁 / 解封、重置密码、设为管理员或直接删除。系统始终保留至少一个可用管理员。</p>
+        <div class="adm-toolbar">
+          <input class="adm-input" id="userSearch" placeholder="搜索邮箱或用户名">
+          <select class="adm-select" id="userGroupFilter">
+            <option value="">全部分组</option>
+          </select>
+          <select class="adm-select" id="userStatusFilter">
+            <option value="">全部状态</option>
+            <option value="active">正常</option>
+            <option value="banned">已封禁</option>
+          </select>
+          <button id="userRefreshBtn">刷新</button>
+          <span class="adm-count" id="userTotal"></span>
+        </div>
+        <div id="userTableBox"><div class="adm-empty">加载中…</div></div>
+      </div>
+
+    </div>
+    <div class="panelbox" id="adminGuest" hidden>
+      <h2>管理</h2>
+      <p class="mtip">该页面仅对管理员开放，请使用管理员账号登录后再访问。</p>
+    </div>
+  </section>
   <!-- 使用说明 -->
   <section class="page" id="page-about" hidden>
     <div class="panelbox">
@@ -340,6 +476,13 @@
           「动效」控制光晕漂移与点击反馈。全部设置保存在本机浏览器，PC / 手机端各自适配。</p>
         <p><b>我分享的邀请码</b>　「我的账号」页下方可折叠查看你分享的邀请码，默认只显示前 20 个（表格形式，含状态、来源、时间），
           点开可展开全部；点击码即可复制。</p>
+        <p><b>管理页</b>　管理员登录后，导航栏会多出「管理」入口，可管理：系统邮箱授权（登记 SMTP 发件邮箱与授权码，可设默认发件人）、
+          注册策略（是否开放新用户注册、是否允许含特殊符号的邮箱、邮箱白名单）、用户组（给用户做分类）、
+          用户治理（改分类、封号 / 解封、重置密码、设为管理员、删除账号）。系统始终保留至少一个可用管理员，且不能封禁或删除自己。</p>
+        <p><b>初始部署</b>　首次访问时会弹出「初始化部署」引导，填写登录账号、绑定邮箱与密码即可创建第一个管理员；
+          之后进入「管理 → 系统邮箱授权」补充 SMTP 账号即可正常发送验证码。</p>
+        <p><b>注销账号</b>　「我的账号」页底部提供「注销账号」，需输入登录密码确认。注销会清除个人资料、密码与全部分享记录，且不可恢复；
+          若只是想退出，点「退出登录」即可。</p>
         <p><b>隐私</b>　本站不收集任何账号 Cookie / 登录凭证。抓取书签只读取你自己浏览器里当前页面的公开文字。</p>
         <p><b>部署</b>　前端可独立托管到 Cloudflare Pages（静态资源全球 CDN、流量免费无限），
           后端仍跑在本服务上：<code>?api=https://后端地址</code> 可临时切换后端。
@@ -349,6 +492,26 @@
       </div>
     </div>
   </section>
+</div>
+
+<!-- 初始部署引导：创建第一个管理员 -->
+<div class="setup-mask" id="setupMask">
+  <div class="setup-box">
+    <h2>初始化部署</h2>
+    <p class="stip">首次使用请创建管理员账号。管理员可进入「管理」页配置邮箱授权、注册白名单、用户分组，并封禁或删除用户。</p>
+    <label class="slabel" for="suAccount">登录账号（邮箱）<em>必填</em></label>
+    <input id="suAccount" type="email" placeholder="admin@example.com" autocomplete="username">
+    <label for="suEmail">绑定邮箱<em>必填</em></label>
+    <input id="suEmail" type="email" placeholder="用于接收通知的邮箱">
+    <label class="slabel" for="suPwd">登录密码<em>必填，6-32 位</em></label>
+    <input id="suPwd" type="password" placeholder="设置管理员密码" autocomplete="new-password">
+    <label for="suPwd2">确认密码</label>
+    <input id="suPwd2" type="password" placeholder="再次输入密码" autocomplete="new-password">
+    <button id="suSubmitBtn" class="primary sbtn">创建管理员并进入</button>
+    <div class="smsg" id="suMsg"></div>
+    <p class="shint">提示：若尚未配置发件邮箱，可先在此创建管理员，再进入「管理 → 系统邮箱授权」补充 SMTP 账号；
+      未配置时验证码会以开发模式直接显示在页面上。</p>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -427,10 +590,14 @@
 (function(){
   // 线上网关要求静态资源也带 sharecode；本地 / 自建部署不带即可
   var sc=(typeof window.__XD_SHARECODE__==='string')?window.__XD_SHARECODE__:'';
-  var s=document.createElement('script');
-  s.src='js/ui-control.js'+(sc?('?sharecode='+encodeURIComponent(sc)):'');
-  s.async=false;               // 保证在业务脚本前执行
-  document.head.appendChild(s);
+  function load(path){
+    var s=document.createElement('script');
+    s.src=path+(sc?('?sharecode='+encodeURIComponent(sc)):'');
+    s.async=false;               // 保证在业务脚本前执行
+    document.head.appendChild(s);
+  }
+  load('js/ui-control.js');
+  load('js/admin.js');
 })();
 </script>
 <script>
@@ -498,7 +665,7 @@ async function apiFetch(path, opts){
 let DATA = {codes:[],counts:{}}, filter='all', q='', cat='all', sortBy='default';
 let myShareAll=false;   // 我分享的邀请码：是否展开全部
 let TOKEN = localStorage.getItem('xd_token') || '';
-let ME = null;
+window.ME = null;   // 挂到全局：管理页模块需要读取当前用户角色
 const TRIED='xd_tried_codes_v1';
 let tried=new Set();
 try{ tried=new Set(JSON.parse(localStorage.getItem(TRIED)||'[]')); }catch(e){}
@@ -514,6 +681,12 @@ function switchPage(name){
   try{ location.hash = name==='codes' ? '' : name; }catch(e){}
   try{ localStorage.setItem('xd_page', name); }catch(e){}
   if(name==='account') renderAccount();
+  if(name==='admin' && window.XDAdmin && !window.XDAdmin.isAdmin()){
+    toast('需要管理员权限');
+    switchPage('codes');
+    return;
+  }
+  if(name==='admin' && window.XDAdmin) window.XDAdmin.load();
 }
 document.querySelectorAll('.nav-tab').forEach(b=>b.onclick=()=>switchPage(b.dataset.page));
 
@@ -808,10 +981,19 @@ async function checkMe(){
   try{
     const r=await apiFetch('/api/auth/me',{headers:{Authorization:'Bearer '+TOKEN}});
     const j=await r.json();
-    if(j.ok && j.user){ ME=j.user; ME.stats=j.stats; }
-    else { TOKEN=''; localStorage.removeItem('xd_token'); ME=null; }
+    if(j.ok && j.user){ window.ME=j.user; window.ME.stats=j.stats; }
+    else { TOKEN=''; localStorage.removeItem('xd_token'); window.ME=null; }
   }catch(e){ /* 网络错误保留本地态 */ }
   renderAccount();
+  syncAdminTab();
+}
+
+// 管理页入口：仅管理员可见
+function syncAdminTab(){
+  const tab=$('#adminTab'); if(!tab) return;
+  const isAdmin = !!(ME && ME.role==='admin');
+  tab.hidden = !isAdmin;
+  if(!isAdmin && !$('#page-admin').hidden) switchPage('codes');
 }
 function genderText(g){ return {male:'男',female:'女',other:'其他'}[g]||'保密'; }
 function renderAccount(){
@@ -863,8 +1045,29 @@ function renderMyShares(){
 }
 async function doLogout(){
   try{ await apiFetch('/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+TOKEN}}); }catch(e){}
-  TOKEN=''; ME=null; localStorage.removeItem('xd_token'); renderAccount(); toast('已退出登录');
+  TOKEN=''; window.ME=null; localStorage.removeItem('xd_token'); renderAccount(); toast('已退出登录');
 }
+function delMsg(t,cls){ const el=$('#delMsg'); el.textContent=t; el.className='mmsg '+(cls||''); }
+$('#delAccountBtn').onclick=async()=>{
+  if(!ME){ delMsg('请先登录','err'); return; }
+  const pwd=$('#delPwd').value;
+  if(!pwd){ delMsg('请输入登录密码以确认','err'); return; }
+  if(!confirm('确认注销该账号？个人资料、密码与分享记录将被永久清除。')) return;
+  const btn=$('#delAccountBtn'); btn.textContent='注销中…'; btn.disabled=true;
+  try{
+    const r=await apiFetch('/api/auth/delete-account',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:JSON.stringify({password:pwd})});
+    const j=await r.json();
+    if(j.ok){
+      TOKEN=''; window.ME=null; localStorage.removeItem('xd_token');
+      delMsg('账号已注销','ok');
+      toast('账号已注销');
+      setTimeout(()=>{ location.reload(); },1000);
+    }else{
+      delMsg(j.error||'注销失败','err');
+      btn.textContent='注销账号'; btn.disabled=false;
+    }
+  }catch(e){ delMsg('注销失败，请重试','err'); btn.textContent='注销账号'; btn.disabled=false; }
+};
 let genderPick='';
 document.querySelectorAll('#genderRow button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#genderRow button').forEach(x=>x.classList.remove('on'));
@@ -878,7 +1081,7 @@ $('#saveProfileBtn').onclick=async()=>{
   try{
     const r=await apiFetch('/api/auth/profile',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:JSON.stringify(payload)});
     const j=await r.json();
-    if(j.ok && j.user){ ME=j.user; profMsg('资料已保存','ok'); renderAccount(); setTimeout(load,1500); }
+    if(j.ok && j.user){ window.ME=j.user; profMsg('资料已保存','ok'); renderAccount(); setTimeout(load,1500); }
     else profMsg(j.error||'保存失败','err');
   }catch(e){ profMsg('保存失败，请重试','err'); }
   finally{ btn.textContent='保存资料'; btn.disabled=false; }
@@ -909,7 +1112,7 @@ $('#mailConfirmBtn').onclick=async()=>{
   try{
     const r=await apiFetch('/api/auth/change-email/confirm',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:JSON.stringify({email,code})});
     const j=await r.json();
-    if(j.ok && j.user){ ME=j.user; mailMsg('邮箱已更新','ok'); renderAccount(); toast('邮箱已更新'); }
+    if(j.ok && j.user){ window.ME=j.user; mailMsg('邮箱已更新','ok'); renderAccount(); toast('邮箱已更新'); }
     else mailMsg(j.error||'更换失败','err');
   }catch(e){ mailMsg('更换失败，请重试','err'); }
 };
@@ -920,7 +1123,7 @@ $('#setPwdBtn').onclick=async()=>{
   try{
     const r=await apiFetch('/api/auth/password',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:JSON.stringify({password})});
     const j=await r.json();
-    if(j.ok){ ME=j.user||ME; $('#setPwd').value=''; pwdMsg('密码已设置，可用密码登录','ok'); renderAccount(); }
+    if(j.ok){ window.ME=j.user||window.ME; $('#setPwd').value=''; pwdMsg('密码已设置，可用密码登录','ok'); renderAccount(); }
     else pwdMsg(j.error||'设置失败','err');
   }catch(e){ pwdMsg('设置失败，请重试','err'); }
 };
@@ -950,7 +1153,7 @@ $('#sendCodeBtn').onclick=async()=>{
 };
 function applyLogin(j){
   TOKEN=j.token; localStorage.setItem('xd_token',TOKEN);
-  ME=j.user; ME.stats={submitted:0};
+  window.ME=j.user; window.ME.stats={submitted:0};
   renderAccount(); closeAuth();
   toast((j.user.is_new?'注册':'登录')+'成功');
 }
@@ -1009,19 +1212,22 @@ $('#resetConfirmBtn').onclick=async()=>{
   }catch(e){ resetMsg('重置失败，请重试','err'); }
 };
 
+// ---- 等待动态注入的模块脚本就绪（最多等 2 秒）----
+function waitModule(name, cb){
+  if(window[name]){ try{ cb(window[name]); }catch(e){ console.warn(name+' init failed',e); } return; }
+  var tries=0;
+  (function wait(){
+    if(window[name]){ try{ cb(window[name]); }catch(e){} return; }
+    if(++tries>40) return;
+    setTimeout(wait,50);
+  })();
+}
+
 // ---- 外观设置：交给独立的 UI 控制组件（static/js/ui-control.js） ----
 // 组件负责：主题（跟随系统/暗黑/亮色）、主题色、毛玻璃开关与微调、胶囊形状、
 //          安卓 11 风格、动效开关，并把状态持久化到 localStorage。
 // 组件脚本是动态注入的，可能晚于本脚本执行，这里做一次等待。
-(function initAppearance(){
-  if(window.XDUI){ try{ window.XDUI.init(); }catch(e){ console.warn('UI init failed',e); } return; }
-  var tries=0;
-  (function wait(){
-    if(window.XDUI){ try{ window.XDUI.init(); }catch(e){} return; }
-    if(++tries>40) return;                       // 最多等 2 秒
-    setTimeout(wait,50);
-  })();
-})();
+waitModule('XDUI', m=>m.init());
 
 // ---- 我分享的邀请码：折叠 / 展开 ----
 $('#myShareHead').onclick=()=>{ $('#myShareFold').classList.toggle('open'); };
@@ -1117,11 +1323,13 @@ buildBookmarklet();
 try{
   let start='codes';
   const h=(location.hash||'').replace('#','');
-  if(['codes','community','submit','account','about'].includes(h)) start=h;
-  else { const p=localStorage.getItem('xd_page'); if(['codes','community','submit','account','about'].includes(p)) start=p; }
+  if(['codes','community','submit','account','about','admin'].includes(h)) start=h;
+  else { const p=localStorage.getItem('xd_page'); if(['codes','community','submit','account','about','admin'].includes(p)) start=p; }
   switchPage(start);
 }catch(e){}
 checkMe();
+// 初始部署检测：未创建管理员时展示初始化引导（等待管理模块加载就绪）
+waitModule('XDAdmin', m=>m.checkSetup());
 // 每 25 秒自动抓取一次并刷新：后端有采集锁 + 官方校验 TTL 缓存保护，不会打爆额度
 load();
 // 静态快照模式（无实时后端）下降低轮询频率，避免无意义的失败请求

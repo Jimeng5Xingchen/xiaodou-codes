@@ -61,13 +61,132 @@ SMTP_FROM_NAME = _conf("SMTP_FROM_NAME", "小豆抓码站")
 SMTP_SSL = _conf("SMTP_SSL", "1") != "0"
 
 
+def test_account(account_id: int, to: str) -> dict[str, Any]:
+    """测试某个授权发件邮箱的发信能力。account_id=0 表示用当前生效账号。"""
+    to = (to or "").strip()
+    if not to:
+        return {"ok": False, "error": "请填写测试收件邮箱"}
+    account = None
+    if account_id:
+        try:
+            import db as store
+
+            with store.db() as conn:
+                row = conn.execute(
+                    "SELECT address,provider,host,port,use_ssl,password,enabled,is_default "
+                    "FROM mail_accounts WHERE id=?", (account_id,)
+                ).fetchone()
+            if not row:
+                return {"ok": False, "error": "授权邮箱不存在"}
+            account = {
+                "address": row["address"],
+                "provider": row["provider"] or "smtp",
+                "host": row["host"] or "",
+                "port": int(row["port"] or 465),
+                "use_ssl": bool(row["use_ssl"]),
+                "password": row["password"] or "",
+            }
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": f"读取失败：{exc}"}
+    else:
+        account = _effective_account()
+    if not account:
+        return {"ok": False, "error": "尚未配置可用的发件邮箱"}
+    if account.get("provider") == "dev":
+        return {"ok": True, "provider": "dev", "message": "当前为 dev 模式，未真实发信"}
+    subject = "小豆抓码站 - 发信测试"
+    html = (
+        "<div style='font-family:-apple-system,Segoe UI,PingFang SC,sans-serif;'>"
+        "<p>这是一封来自小豆抓码站的发信测试邮件。</p>"
+        f"<p style='color:#888;font-size:13px;'>发件账号：{account.get('address','')}</p>"
+        "</div>"
+    )
+    return _send_smtp(account, to, subject, html)
+
+
 def provider() -> str:
     return PROVIDER
 
 
 def dev_mode() -> bool:
     """是否由前端直显验证码。"""
-    return PROVIDER == "dev"
+    return provider() == "dev"
+
+
+def db_accounts() -> list[dict[str, Any]]:
+    """读取管理端配置的授权发件邮箱（数据库优先于文件配置）。"""
+    try:
+        import db as store
+
+        with store.db() as conn:
+            rows = conn.execute(
+                "SELECT address,provider,host,port,use_ssl,password,enabled,is_default "
+                "FROM mail_accounts ORDER BY is_default DESC, id ASC"
+            ).fetchall()
+        return [
+            {
+                "address": r["address"],
+                "provider": r["provider"] or "smtp",
+                "host": r["host"] or "",
+                "port": int(r["port"] or 465),
+                "use_ssl": bool(r["use_ssl"]),
+                "password": r["password"] or "",
+                "enabled": bool(r["enabled"]),
+                "is_default": bool(r["is_default"]),
+            }
+            for r in rows
+            if r["enabled"]
+        ]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _effective_account() -> dict[str, Any] | None:
+    """本次发信使用的账号：优先数据库授权账号，其次文件 / 环境变量配置。"""
+    accounts = db_accounts()
+    if accounts:
+        # 优先默认账号，其次第一个启用的
+        for acc in accounts:
+            if acc["is_default"]:
+                return acc
+        return accounts[0]
+    if PROVIDER == "dev":
+        return {"address": "", "provider": "dev", "host": "", "port": 0, "use_ssl": True,
+                "password": "", "enabled": True, "is_default": True}
+    if PROVIDER == "smtp" and all([SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_FROM]):
+        return {
+            "address": SMTP_FROM,
+            "provider": "smtp",
+            "host": SMTP_HOST,
+            "port": SMTP_PORT,
+            "use_ssl": SMTP_SSL,
+            "password": SMTP_PASS,
+            "enabled": True,
+            "is_default": True,
+        }
+    return None
+
+
+def _send_smtp(acc: dict[str, Any], to: str, subject: str, html: str) -> dict[str, Any]:
+    """按给定账号配置发送一封邮件。"""
+    if not all([acc.get("host"), acc.get("address"), acc.get("password")]):
+        return {"ok": False, "provider": "smtp", "error": "SMTP 配置不完整"}
+    msg = MIMEText(html, "html", "utf-8")
+    msg["Subject"] = Header(subject, "utf-8")
+    msg["From"] = formataddr((str(Header(SMTP_FROM_NAME, "utf-8")), acc["address"]))
+    msg["To"] = to
+    try:
+        if acc.get("use_ssl", True):
+            server = smtplib.SMTP_SSL(acc["host"], int(acc.get("port") or 465), timeout=20)
+        else:
+            server = smtplib.SMTP(acc["host"], int(acc.get("port") or 465), timeout=20)
+            server.starttls()
+        with server:
+            server.login(acc["address"], acc["password"])
+            server.sendmail(acc["address"], [to], msg.as_string())
+        return {"ok": True, "provider": "smtp", "from": acc["address"]}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "provider": "smtp", "error": f"SMTP 发送失败：{exc}"}
 
 
 def send_verification_code(email: str, code: str, purpose: str = "login") -> dict[str, Any]:
@@ -92,8 +211,15 @@ def send_verification_code(email: str, code: str, purpose: str = "login") -> dic
         "</div>"
     )
 
-    if PROVIDER == "dev":
+    if PROVIDER == "dev" and not db_accounts():
         return {"ok": True, "provider": "dev", "dev_code": code}
+
+    # 管理端配置的授权发件邮箱优先于文件 / 环境变量配置
+    account = _effective_account()
+    if account and account.get("provider") == "dev":
+        return {"ok": True, "provider": "dev", "dev_code": code}
+    if account and account.get("provider") == "smtp":
+        return _send_smtp(account, email, subject, html)
 
     if PROVIDER == "temporam":
         if not TEMPORAM_TOKEN:

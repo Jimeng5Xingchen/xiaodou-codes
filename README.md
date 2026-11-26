@@ -72,6 +72,52 @@ SMTP_PASS=授权码 SMTP_FROM=you@qq.com python3 app.py
 > 之前提供的 Temporam Token 为 `hobby` 套餐，`outbound.limit=0`、发信返回 403
 > `sender_not_allowed`，无法作为发件邮箱，故改用网易 SMTP。
 
+## 管理后台（用户治理 / 系统配置）
+
+### 初始部署
+
+首次访问时前端会弹出「初始化部署」引导（`GET /api/setup/state` 返回 `initialized: false`）。
+填写 **登录账号（邮箱）**、**绑定邮箱**、**登录密码** 后提交 `POST /api/setup/init`，
+系统创建第一个 `role=admin` 的账号并直接签发登录 token。初始化完成后该接口自动关闭，无法重复执行。
+
+```bash
+# 查询初始化状态
+curl http://127.0.0.1:8080/api/setup/state
+# {"ok":true,"initialized":false,"mailReady":true,"provider":"smtp"}
+```
+
+### 管理页
+
+管理员登录后导航栏出现「管理」入口（`static/js/admin.js`，样式 `static/css/admin.css`），包含四块：
+
+| 模块 | 能力 | 对应接口 |
+|---|---|---|
+| **系统邮箱授权** | 登记多个 SMTP 发件邮箱（地址 / 服务器 / 端口 / SSL / 授权码），可设默认发件人、启停、测试发信 | `/api/admin/mail-accounts` |
+| **注册策略** | 是否开放新用户注册、是否允许含特殊符号的邮箱、邮箱白名单（完整邮箱或 `@域名`） | `/api/admin/settings` |
+| **用户组** | 自定义分组（如「内测用户」），组内成员可批量筛选；删除分组时成员回到「未分组」 | `/api/admin/groups` |
+| **用户管理** | 搜索 / 按分组 / 状态筛选用户，改分类、封号解封、重置密码、设为管理员、删除账号 | `/api/admin/users` |
+
+**安全护栏**（`admin.py`）：
+
+- 不能封禁 / 删除 / 降级自己
+- 系统始终保留至少一个可用管理员
+- 封禁后立即清除该用户的全部登录态
+- 邮箱白名单只约束「尚未注册」的邮箱，不会把已有用户挡在门外
+- 所有管理接口校验 `role=admin`，非管理员返回 403
+
+### 数据表
+
+| 表 | 用途 |
+|---|---|
+| `users` | 原有字段 + `role` / `status` / `group_id` / `ban_reason` / `banned_at` |
+| `groups` | 用户组 |
+| `settings` | 键值型系统设置（`setup_done` / `email_whitelist` / `allow_special_email` / `registration_enabled` 等） |
+| `mail_accounts` | 系统授权发件邮箱 |
+
+表结构集中在 `db.py`，启动时 `db.init_db()` 幂等建表并为旧库补列。
+
+发信时优先使用管理端登记的授权账号（默认账号优先），其次回退到 `mail_config.json` / 环境变量。
+
 ## 用户提交（不上传 Cookie）
 
 站点不收集任何账号 Cookie / 登录凭证。用户提交有两种方式：
