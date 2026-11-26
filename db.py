@@ -10,6 +10,11 @@
 - groups          用户组（可自定义分类）
 - settings        键值型系统设置（邮箱白名单、特殊符号开关、初始化标记等）
 - mail_accounts   系统授权发件邮箱（多账号，可指定默认发件人）
+
+MCP 授权相关：
+- mcp_tokens      AI 客户端连接令牌（只存 SHA-256 摘要，可过期 / 可撤销）
+- mcp_clients     已注册的 MCP 客户端（记录授权来源与回调地址）
+- mcp_auth_codes  浏览器远端授权的一次性授权码（OAuth 2.1 风格 + PKCE）
 """
 
 from __future__ import annotations
@@ -100,7 +105,45 @@ def init_db() -> None:
                 note TEXT DEFAULT '',
                 created_at INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS mcp_tokens(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT DEFAULT '',
+                token_hash TEXT UNIQUE NOT NULL,
+                token_prefix TEXT DEFAULT '',
+                scopes TEXT DEFAULT '',
+                client_id TEXT DEFAULT '',
+                created_at INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL,
+                last_used_at INTEGER DEFAULT 0,
+                revoked_at INTEGER DEFAULT 0,
+                use_count INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS mcp_clients(
+                client_id TEXT PRIMARY KEY,
+                name TEXT DEFAULT '',
+                redirect_uris TEXT DEFAULT '',
+                created_at INTEGER NOT NULL,
+                approved_at INTEGER DEFAULT 0,
+                approved_by INTEGER DEFAULT 0,
+                last_used_at INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS mcp_auth_codes(
+                code TEXT PRIMARY KEY,
+                client_id TEXT DEFAULT '',
+                user_id INTEGER NOT NULL,
+                redirect_uri TEXT DEFAULT '',
+                scope TEXT DEFAULT '',
+                state TEXT DEFAULT '',
+                code_challenge TEXT DEFAULT '',
+                code_challenge_method TEXT DEFAULT '',
+                created_at INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL,
+                used_at INTEGER DEFAULT 0
+            );
             CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+            CREATE INDEX IF NOT EXISTS idx_mcp_tokens_user ON mcp_tokens(user_id);
+            CREATE INDEX IF NOT EXISTS idx_mcp_codes_user ON mcp_auth_codes(user_id);
             """
         )
         # 兼容旧库：补齐后加的资料列 / 治理列

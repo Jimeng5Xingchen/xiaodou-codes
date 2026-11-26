@@ -416,6 +416,23 @@ def user_by_token(token: str) -> dict[str, Any] | None:
     # 主路径：无状态签名 token，验签即可，不依赖服务端 session 表
     signed = parse_token(token)
     if signed:
+        # 再查一次账号实时状态：封禁 / 注销后旧 token 立即失效，
+        # 同时把角色与分组同步为最新值（管理员改权限后无需重新登录）。
+        try:
+            with _db() as conn:
+                row = conn.execute(
+                    "SELECT role, status, group_id FROM users WHERE id=?", (signed["id"],)
+                ).fetchone()
+        except sqlite3.Error:
+            row = None
+        if not row:
+            return None
+        status = row["status"] or "active"
+        if status not in ("active", ""):
+            return None
+        signed["role"] = row["role"] or signed.get("role") or "user"
+        signed["group_id"] = int(row["group_id"] or 0)
+        signed["status"] = status
         return signed
     # 兼容旧版随机 token：回退查 session 表
     now = int(time.time())
@@ -512,12 +529,39 @@ def record_submission(token: str, code: str, source: str = "") -> bool:
     user = user_by_token(token)
     if not user:
         return False
+    return record_submission_for_user(user, code, source)
+
+
+def record_submission_for_user(user: dict[str, Any] | None, code: str, source: str = "") -> bool:
+    """按用户对象记录分享（MCP 等场景没有会话 token 时使用）。"""
+    if not user or not user.get("id"):
+        return False
     with _lock, _db() as conn:
         cur = conn.execute(
             "INSERT OR IGNORE INTO submissions(code,user_id,source,created_at) VALUES(?,?,?,?)",
-            (code.upper(), user["id"], source[:40], int(time.time())),
+            (code.upper(), int(user["id"]), source[:40], int(time.time())),
         )
         return cur.rowcount > 0
+
+
+def list_submissions(user_id: int, limit: int = 200) -> list[dict[str, Any]]:
+    """列出某用户分享过的码（按提交时间倒序）。"""
+    if not user_id:
+        return []
+    with _db() as conn:
+        rows = conn.execute(
+            "SELECT code, source, created_at FROM submissions WHERE user_id=? "
+            "ORDER BY id DESC LIMIT ?",
+            (int(user_id), max(1, int(limit))),
+        ).fetchall()
+    return [
+        {
+            "code": r["code"] or "",
+            "source": r["source"] or "",
+            "createdAt": int(r["created_at"] or 0),
+        }
+        for r in rows
+    ]
 
 
 def update_profile(

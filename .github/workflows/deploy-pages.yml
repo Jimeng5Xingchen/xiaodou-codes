@@ -18,8 +18,15 @@ on:
     paths:
       - 'collector.py'
       - 'app.py'
+      - 'auth.py'
+      - 'admin.py'
+      - 'db.py'
+      - 'mailer.py'
+      - 'mcp_*.py'
+      - '*.py'
       - 'static/**'
       - 'scripts/**'
+      - 'requirements.txt'
       - '.github/workflows/deploy-pages.yml'
 
 permissions:

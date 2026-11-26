@@ -1,0 +1,111 @@
+/* ==========================================================================
+   MCP / AI 授权区块样式（「我的账号」页）
+   与站点玻璃拟态语言保持一致，浅色 / 深色 / 毛玻璃 / 安卓11 风格均适配。
+   ========================================================================== */
+
+.mcp-card{
+  margin-top:14px;padding:15px 16px;border-radius:var(--r-card);
+  border:1px solid var(--line);background:var(--panel);
+}
+.mcp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:13px}
+.mcp-head h3{font-size:14.5px;margin:0 0 5px;font-weight:650}
+.mcp-head .mtip{margin:0;font-size:12.5px;line-height:1.7}
+
+/* ---- 状态徽标 ---- */
+.mcp-state{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  font-size:11.5px;padding:4px 10px;border-radius:var(--r-pill);
+  border:1px solid var(--line);color:var(--dim);background:var(--panel2);
+}
+.mcp-state.on{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent);
+  background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.mcp-state .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 6px}
+.mcp-state.on .dot{box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 18%,transparent)}
+
+/* ---- 地址 / Token 展示 ---- */
+.mcp-grid{display:grid;grid-template-columns:1fr;gap:9px;margin-bottom:12px}
+.mcp-cell label{display:block;font-size:11.5px;color:var(--dim);margin-bottom:5px;letter-spacing:.03em}
+.mcp-val{
+  display:flex;align-items:center;gap:7px;background:var(--panel2);
+  border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 9px;
+}
+.mcp-val code{
+  flex:1;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:12px;line-height:1.5;word-break:break-all;white-space:normal;color:var(--fg);
+}
+.mcp-val .mini{flex:0 0 auto;white-space:nowrap}
+.mcp-val .mini.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+
+/* ---- 操作按钮 ---- */
+.mcp-ops{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.mcp-ops button{font-size:13px;padding:9px 14px}
+
+/* ---- 浏览器远端授权面板 ---- */
+.mcp-authbox{
+  margin-top:12px;padding:13px 13px 12px;border-radius:var(--r-md);
+  border:1px dashed color-mix(in srgb,var(--accent2) 40%,transparent);
+  background:color-mix(in srgb,var(--accent2) 7%,transparent);
+}
+.mcp-authbox[hidden]{display:none}
+.mcp-authbox .mrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.mcp-authbox .mrow input{flex:1;min-width:130px}
+.mcp-authbox > label{display:block;font-size:11.5px;color:var(--dim);margin:4px 0 6px}
+.mcp-authbox .mtip{margin:10px 0 0;font-size:11.5px;line-height:1.7}
+
+/* ---- 权限勾选 ---- */
+.mcp-scopes{display:flex;flex-direction:column;gap:7px;margin-bottom:11px}
+.mcp-scope{
+  display:flex;align-items:flex-start;gap:9px;padding:8px 10px;border-radius:var(--r-sm);
+  border:1px solid var(--line);background:var(--panel);cursor:pointer;font-size:12.5px;line-height:1.6;
+}
+.mcp-scope input{
+  /* 覆盖 .panelbox input{width:100%} 的全局规则，保证复选框不被拉伸 */
+  width:auto;height:auto;min-width:0;margin:3px 0 0;padding:0;border:0;
+  background:transparent;flex:0 0 auto;accent-color:var(--accent);
+}
+.mcp-scope b{font-weight:600;color:var(--fg)}
+.mcp-scope small{display:block;color:var(--dim);font-size:11.5px}
+
+/* ---- 折叠列表（令牌 / 客户端）---- */
+.mcp-fold{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.mcp-fold summary{
+  cursor:pointer;font-size:13px;font-weight:600;color:var(--fg);list-style:none;
+  display:flex;align-items:center;gap:8px;user-select:none;
+}
+.mcp-fold summary::-webkit-details-marker{display:none}
+.mcp-fold summary::before{content:"▶";font-size:10px;color:var(--dim);transition:transform .16s var(--ease)}
+.mcp-fold[open] summary::before{transform:rotate(90deg)}
+.mcp-fold summary:hover{color:var(--accent2)}
+.mcp-fold .mcp-list{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+
+.mcp-item{
+  border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 11px;background:var(--panel2);
+}
+.mcp-item .r1{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.mcp-item .nm{font-size:13px;font-weight:600;word-break:break-all}
+.mcp-item .meta{font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.65;word-break:break-all}
+.mcp-item .meta code{font-size:11px}
+.mcp-item .acts{display:flex;gap:6px;margin-top:8px}
+.mcp-item .acts button{font-size:11.5px;padding:5px 10px}
+.mcp-item.dead{opacity:.62}
+.mcp-item .tagline{display:inline-block;font-size:11px;padding:2px 7px;border-radius:var(--r-pill);
+  border:1px solid var(--line);color:var(--dim);margin-left:6px}
+.mcp-item .tagline.live{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.mcp-item .tagline.off{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,transparent)}
+
+.mcp-empty{font-size:12.5px;color:var(--dim);padding:10px 2px;line-height:1.7}
+
+/* ---- 工具清单 ---- */
+.mcp-tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:7px;margin-top:9px}
+.mcp-tool{border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 10px;background:var(--panel2)}
+.mcp-tool b{display:block;font-size:12px;font-family:ui-monospace,Menlo,Consolas,monospace;
+  color:var(--accent2);word-break:break-all}
+.mcp-tool span{display:block;font-size:11.5px;color:var(--dim);margin-top:3px;line-height:1.55}
+
+/* ---- 移动端 ---- */
+@media(max-width:560px){
+  .mcp-card{padding:13px 12px}
+  .mcp-head{flex-direction:column;gap:8px}
+  .mcp-ops button{flex:1 1 46%}
+  .mcp-tools{grid-template-columns:1fr}
+}

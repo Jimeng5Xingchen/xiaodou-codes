@@ -113,6 +113,9 @@ curl http://127.0.0.1:8080/api/setup/state
 | `groups` | 用户组 |
 | `settings` | 键值型系统设置（`setup_done` / `email_whitelist` / `allow_special_email` / `registration_enabled` 等） |
 | `mail_accounts` | 系统授权发件邮箱 |
+| `mcp_tokens` | AI 客户端连接令牌（只存 SHA-256 摘要，可过期 / 可撤销） |
+| `mcp_clients` | 已注册的 MCP 客户端（授权来源与回调地址） |
+| `mcp_auth_codes` | 浏览器远端授权的一次性授权码（OAuth 2.1 风格 + PKCE） |
 
 表结构集中在 `db.py`，启动时 `db.init_db()` 幂等建表并为旧库补列。
 
@@ -128,6 +131,79 @@ curl http://127.0.0.1:8080/api/setup/state
 
 用户提交的码持久化在 `data/submitted.json`，重启后自动恢复并并入采集结果。
 
+## MCP 服务（AI 连接）
+
+后端内置一个 Model Context Protocol 服务端（JSON-RPC 2.0 / Streamable HTTP，零第三方依赖），
+让 AI 客户端（Claude Desktop / Cursor / Cherry Studio / Codex 等）直接接入。
+
+### 端点
+
+| 路径 | 方法 | 说明 |
+|---|---|---|
+| `/mcp` | POST | MCP 主端点：`initialize` / `tools/list` / `tools/call` / `resources/*` |
+| `/mcp` | GET | 返回 405（本服务为无状态实现，无服务端主动推送通道） |
+| `/mcp/authorize` | GET | 浏览器授权确认页（显示客户端名称、申请权限、回调地址） |
+| `/mcp/authorize` | POST | 授权页表单提交 → 302 回跳 `redirect_uri?code=…&state=…` |
+| `/mcp/authorize/approve` | POST | JSON 接口，站内按钮直接换取回调地址 |
+| `/mcp/token` | POST | 令牌端点：`authorization_code` + PKCE → `access_token` |
+| `/mcp/register` | POST | 动态客户端注册（RFC 7591 风格） |
+| `/.well-known/oauth-authorization-server` | GET | OAuth 元数据，供客户端自动发现授权流程 |
+| `/.well-known/oauth-protected-resource` | GET | 受保护资源元数据 |
+
+用户级接口（需登录态）：`GET /api/mcp/config`、`POST /api/mcp/tokens`、
+`DELETE /api/mcp/tokens/{id}`、`POST /api/mcp/tokens/{id}/rotate`、
+`GET /api/mcp/clients`、`DELETE /api/mcp/clients/{client_id}`、`POST /api/mcp/revoke-all`。
+
+### 鉴权
+
+令牌解析顺序：`X-MCP-Token` 头 → `Authorization: Bearer` → `?access_token=`。
+把 `X-MCP-Token` 放在首位是因为部分发布平台网关会强制改写 `Authorization` 头，自定义头不会被篡改。
+
+客户端配置示例（Cursor / Claude Desktop / Cherry Studio 通用格式）：
+
+```json
+{
+  "mcpServers": {
+    "小豆邀请码": {
+      "type": "http",
+      "url": "https://<后端地址>/mcp",
+      "headers": { "X-MCP-Token": "<连接 Token>" }
+    }
+  }
+}
+```
+
+### 权限范围（scope）
+
+| scope | 含义 |
+|---|---|
+| `codes:read` | 读取邀请码（搜索、详情、统计、社区入口） |
+| `codes:write` | 发布邀请码与邀请码链接 |
+| `account:read` | 读取你的账号资料与分享记录 |
+| `tokens:manage` | 管理连接令牌（查询 / 新建 / 撤销） |
+
+### 工具清单
+
+`search_codes`（搜索）、`get_code_detail`（详情 + 回复评论）、`submit_code`（发布邀请码）、
+`submit_link`（发布邀请码链接）、`list_my_shares`、`get_my_profile`、`get_site_stats`、
+`list_community_links`、`refresh_codes`（仅管理员）、`list_access_tokens`、
+`create_access_token`、`revoke_access_token`。
+
+### 浏览器远端授权流程
+
+```
+AI 客户端 → 打开浏览器 GET /mcp/authorize?client_id=…&redirect_uri=…
+            → 用户在授权页确认（显示客户端名称与所申请权限）
+            → 302 回跳 redirect_uri?code=…&state=…
+            → AI 客户端 POST /mcp/token（code + code_verifier）
+            → 返回 access_token → 之后用 X-MCP-Token 调用 /mcp
+```
+
+授权码一次性、10 分钟过期，全程支持 PKCE（S256 / plain）。
+回调地址会做校验（已登记客户端必须匹配，未登记客户端仅允许 https / localhost / 自定义 scheme），防开放重定向。
+
+令牌明文只在创建时返回一次，服务端仅保存 SHA-256 摘要；用户可在「我的账号 → AI / MCP 授权」随时单独撤销某个客户端。
+
 ## 前端结构（UI 分层）
 
 样式与外观逻辑已从 `index.html` 拆出，便于单独调整材质而不动业务逻辑：
@@ -141,10 +217,27 @@ static/
 │   ├── glass.css       毛玻璃 · 水晶胶囊材质层（data-glass / data-capsule）
 │   ├── material.css    安卓 11 / Material You 层（data-md）
 │   ├── ui-panel.css    外观设置面板的开关 / 滑块 / 色板控件
+│   ├── admin.css       管理后台样式
+│   ├── mcp.css         「我的账号」页 AI / MCP 授权区块样式
 │   └── responsive.css  断点适配：移动端 / 平板 / PC 宽屏 / 打印
 └── js/
-    └── ui-control.js   UI 控制组件（window.XDUI）
+    ├── ui-control.js   UI 控制组件（window.XDUI）
+    ├── admin.js        管理后台模块（window.XDAdmin）
+    └── mcp.js          AI / MCP 授权模块（window.XDMCP）
 ```
+
+### AI / MCP 授权模块
+
+`static/js/mcp.js`（`window.XDMCP`）负责「我的账号」页的 AI 接入：
+
+- 展示**连接地址**与**连接 Token**（明文保存在本机浏览器 `xd_mcp_creds_v1`，按账号隔离）；
+- 按客户端单独签发 / 重新生成 / 撤销令牌，可「断开全部」；
+- 生成**浏览器远端授权**链接（客户端名称、客户端 ID、回调地址、权限勾选），一键打开授权页；
+- 导出 MCP 客户端配置 JSON（`mcpServers` 标准格式）；
+- 展示已授权客户端与 AI 可调用的工具清单。
+
+后端对应 `mcp_server.py`（协议与工具）、`mcp_store.py`（令牌 / 客户端 / 授权码存储）、
+`mcp_views.py`（服务端渲染的授权页，自包含样式）。
 
 ### 外观设置面板
 

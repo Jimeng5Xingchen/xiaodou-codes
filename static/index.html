@@ -25,6 +25,7 @@
   var ASSETS=[
     ['css','text/css','tokens.css'],['css','text/css','base.css'],['css','text/css','glass.css'],
     ['css','text/css','material.css'],['css','text/css','ui-panel.css'],['css','text/css','admin.css'],
+    ['css','text/css','mcp.css'],
     ['css','text/css','responsive.css']
   ];
   for(var i=0;i<ASSETS.length;i++){
@@ -312,6 +313,78 @@
         <div class="fold-b" id="myShares"><div class="acc-empty">暂无分享，去「提交邀请码」分享你找到的码吧。</div></div>
       </div>
 
+      <div class="divider"></div>
+      <!-- AI / MCP 授权 -->
+      <section class="mcp-card" id="mcpCard">
+        <div class="mcp-head">
+          <div>
+            <h3>AI / MCP 授权</h3>
+            <p class="mtip">授权后，AI 客户端（Claude Desktop / Cursor / Cherry Studio / Codex 等）可通过 MCP 读取本站邀请码、替你发布邀请码与邀请码链接。</p>
+          </div>
+          <span class="mcp-state" id="mcpState"><span class="dot"></span>未连接</span>
+        </div>
+
+        <div class="mcp-grid">
+          <div class="mcp-cell">
+            <label>连接地址（MCP Endpoint）</label>
+            <div class="mcp-val">
+              <code id="mcpEndpoint">—</code>
+              <button class="mini" id="mcpCopyEndpoint">复制</button>
+            </div>
+          </div>
+          <div class="mcp-cell">
+            <label>连接 Token</label>
+            <div class="mcp-val">
+              <code id="mcpToken">尚未生成</code>
+              <button class="mini" id="mcpTokenEye">显示</button>
+              <button class="mini" id="mcpCopyToken">复制</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="mrow" style="margin-top:8px">
+          <input id="mcpTokenName" placeholder="令牌备注（如 Cursor、Claude Desktop），便于日后单独断开" maxlength="40">
+        </div>
+        <div class="mcp-ops">
+          <button id="mcpNewToken" class="primary">生成连接 Token</button>
+          <button id="mcpAuthBtn">浏览器远端授权</button>
+          <button id="mcpCopyCfg">复制客户端配置</button>
+          <button id="mcpRevokeAll">断开全部</button>
+        </div>
+        <div class="mmsg" id="mcpMsg"></div>
+
+        <!-- 浏览器远端授权面板 -->
+        <div class="mcp-authbox" id="mcpAuthBox" hidden>
+          <div class="mrow">
+            <input id="mcpClientName" placeholder="客户端名称，如 Cherry Studio">
+            <input id="mcpClientId" placeholder="客户端 ID（留空自动生成）">
+          </div>
+          <input id="mcpRedirect" placeholder="回调地址，如 http://localhost:8765/callback">
+          <label>权限范围</label>
+          <div class="mcp-scopes" id="mcpScopePicker"></div>
+          <div class="mcp-ops">
+            <button id="mcpAuthOpen" class="primary">打开授权页</button>
+            <button id="mcpAuthCopy">复制授权链接</button>
+          </div>
+          <p class="mtip">AI 客户端通常会自动弹出这个授权页；你也可以手动打开上面的链接完成授权。授权页会显示客户端名称与所申请的权限，确认无误再点「授权」。</p>
+        </div>
+
+        <details class="mcp-fold">
+          <summary>已创建的连接令牌 <span class="badge" id="mcpTokenCount">0</span></summary>
+          <div id="mcpTokenList"><div class="mcp-empty">加载中…</div></div>
+        </details>
+
+        <details class="mcp-fold">
+          <summary>已授权的客户端 <span class="badge" id="mcpClientCount">0</span></summary>
+          <div id="mcpClientList"><div class="mcp-empty">加载中…</div></div>
+        </details>
+
+        <details class="mcp-fold">
+          <summary>AI 可调用的工具</summary>
+          <div class="mcp-tools" id="mcpTools"></div>
+        </details>
+      </section>
+
       <button id="logoutBtn" style="margin-top:16px">退出登录</button>
 
       <div class="divider"></div>
@@ -476,6 +549,11 @@
           「动效」控制光晕漂移与点击反馈。全部设置保存在本机浏览器，PC / 手机端各自适配。</p>
         <p><b>我分享的邀请码</b>　「我的账号」页下方可折叠查看你分享的邀请码，默认只显示前 20 个（表格形式，含状态、来源、时间），
           点开可展开全部；点击码即可复制。</p>
+        <p><b>AI / MCP 授权</b>　「我的账号」页提供 MCP 连接：给出<b>连接地址</b>与<b>连接 Token</b>，
+          AI 客户端（Claude Desktop / Cursor / Cherry Studio / Codex 等）即可读取本站邀请码、替你发布邀请码与邀请码链接。
+          点「浏览器远端授权」会生成授权链接并在浏览器里打开授权页 —— 授权页会明确显示是哪个客户端、申请了哪些权限，
+          确认无误再点「授权」；AI 客户端随后用一次性授权码换回连接令牌（PKCE 校验）。
+          令牌可按客户端单独签发与单独撤销，也可「断开全部」；服务端只保存令牌摘要，明文仅在生成时显示一次。</p>
         <p><b>管理页</b>　管理员登录后，导航栏会多出「管理」入口，可管理：系统邮箱授权（登记 SMTP 发件邮箱与授权码，可设默认发件人）、
           注册策略（是否开放新用户注册、是否允许含特殊符号的邮箱、邮箱白名单）、用户组（给用户做分类）、
           用户治理（改分类、封号 / 解封、重置密码、设为管理员、删除账号）。系统始终保留至少一个可用管理员，且不能封禁或删除自己。</p>
@@ -602,6 +680,7 @@
   }
   load('js/ui-control.js');
   load('js/admin.js');
+  load('js/mcp.js');
 })();
 </script>
 <script>
@@ -1018,6 +1097,8 @@ function renderAccount(){
   if(ps){ ps.textContent = ME.has_password?'已设置':'未设置'; ps.style.color = ME.has_password?'var(--ok)':'var(--dim)'; }
   document.querySelectorAll('#genderRow button').forEach(b=>b.classList.toggle('on', b.dataset.g===(ME.gender||'')));
   renderMyShares();
+  // AI / MCP 授权区块（独立模块）
+  if(window.XDMCP) window.XDMCP.load();
 }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function renderMyShares(){
@@ -1232,6 +1313,10 @@ function waitModule(name, cb){
 //          安卓 11 风格、动效开关，并把状态持久化到 localStorage。
 // 组件脚本是动态注入的，可能晚于本脚本执行，这里做一次等待。
 waitModule('XDUI', m=>m.init());
+
+// ---- AI / MCP 授权模块（static/js/mcp.js）----
+// 负责连接地址 / 连接 Token、令牌增删、浏览器远端授权、客户端配置导出。
+waitModule('XDMCP', m=>m.init());
 
 // ---- 我分享的邀请码：折叠 / 展开 ----
 $('#myShareHead').onclick=()=>{ $('#myShareFold').classList.toggle('open'); };
