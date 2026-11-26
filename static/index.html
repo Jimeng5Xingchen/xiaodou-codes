@@ -54,15 +54,6 @@
   <header style="position:relative">
     <div class="h1row">
       <div class="brand">
-        <img class="brand-logo" id="brandLogo" alt="小豆抓码站 LOGO" width="44" height="44">
-        <script>
-        // 紧跟 <img> 解析，确保在首屏立即取到带 sharecode 的图片地址
-        (function(){
-          var l=document.getElementById('brandLogo'); if(!l) return;
-          var sc=window.__XD_SHARECODE__||'';
-          l.src='img/logo.png'+(sc?('?sharecode='+encodeURIComponent(sc)):'');
-        })();
-        </script>
         <h1 style="margin:0">小豆邀请码<span class="dot">抓码站</span></h1>
       </div>
       <button class="theme-btn" id="themeBtn" title="外观设置" aria-haspopup="true" aria-expanded="false">
