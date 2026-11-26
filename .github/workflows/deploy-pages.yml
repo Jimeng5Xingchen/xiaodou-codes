@@ -1,7 +1,8 @@
 name: 采集并部署 GitHub Pages
 
-# 私有仓库是源码仓库，公开仓库 xiaodou-pages 承载 Pages 站点。
-# 每次运行：拉取最新源码 → 执行采集器 → 生成静态快照 → 构建站点 → 推送 → 等待 Pages 发布。
+# 单仓库结构：源码与本仓库的 GitHub Pages 共用同一个仓库。
+# 每次运行：拉取源码 → 执行采集器 → 生成静态快照 → 构建站点 → 官方 Pages 动作发布。
+# 不再依赖第二个公开仓库，也不再需要 PAT。
 
 on:
   schedule:
@@ -30,17 +31,17 @@ on:
       - '.github/workflows/deploy-pages.yml'
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
 concurrency:
-  group: pages-deploy
+  group: pages
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
-    name: 采集 · 构建 · 部署
+  build:
+    name: 采集 · 构建
     runs-on: ubuntu-latest
     steps:
       - name: 检出源码
@@ -66,7 +67,7 @@ jobs:
               payload = collector.run_once()
           except Exception:
               traceback.print_exc()
-              # 采集失败不应让整条流水线失败：保留上一份快照继续发布
+              # 采集失败不应中断发布：沿用仓库内的基线快照
               payload = None
           if payload:
               with open('data/codes.json', 'w', encoding='utf-8') as fh:
@@ -74,60 +75,38 @@ jobs:
               print('采集完成:', json.dumps(payload.get('counts', {}), ensure_ascii=False))
               print('采集告警:', payload.get('errors', []))
           else:
-              print('采集失败，沿用仓库内已有快照')
+              print('采集失败，沿用仓库内基线快照 data/codes.json')
           PY
 
       - name: 准备快照文件
         run: |
           mkdir -p data
-          if [ ! -f data/codes.json ]; then
+          if [ ! -s data/codes.json ]; then
             echo '{"codes":[],"counts":{"total":0},"errors":["尚无采集快照"],"lastUpdated":""}' > data/codes.json
           fi
 
-      - name: 推送站点产物到公开仓库
+      - name: 构建站点产物
         env:
-          PAGES_REPO: ${{ vars.PAGES_REPO }}
-          DEPLOY_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN }}
           XD_API_BASE: ${{ vars.XD_API_BASE }}
           XD_SHARECODE: ${{ vars.XD_SHARECODE }}
-        run: |
-          set -e
-          if [ -z "$DEPLOY_TOKEN" ]; then
-            echo "未配置 secrets.PAGES_DEPLOY_TOKEN，跳过推送（站点仓库未同步）"
-            exit 0
-          fi
-          bash scripts/publish_pages.sh
+        run: python3 scripts/build_pages.py --out site
 
-      - name: 等待 Pages 发布完成
-        env:
-          PAGES_REPO: ${{ vars.PAGES_REPO }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set +e
-          REPO="${PAGES_REPO:-Jimeng5Xingchen/xiaodou-pages}"
-          HEAD_SHA=$(git ls-remote "https://github.com/${REPO}.git" HEAD 2>/dev/null | cut -f1)
-          echo "站点仓 HEAD: ${HEAD_SHA}"
-          for i in 1 2 3 4 5; do
-            sleep 25
-            STATE=$(gh api "repos/${REPO}/actions/runs?per_page=5" --jq \
-              ".workflow_runs[] | select(.head_sha == \"${HEAD_SHA}\") | .conclusion" 2>/dev/null | head -1)
-            if [ -z "$STATE" ]; then
-              echo "[尝试 $i] 尚未找到对应运行，稍后重试"
-              continue
-            fi
-            echo "[尝试 $i] 运行结论: ${STATE}"
-            if [ "$STATE" = "success" ]; then
-              echo "✅ Pages 发布成功"
-              exit 0
-            fi
-            if [ "$STATE" = "failure" ]; then
-              RID=$(gh api "repos/${REPO}/actions/runs?per_page=5" --jq \
-                ".workflow_runs[] | select(.head_sha == \"${HEAD_SHA}\") | .id" 2>/dev/null | head -1)
-              if [ -n "$RID" ]; then
-                echo "发布失败，重跑运行 ${RID}"
-                gh run rerun "$RID" --repo "$REPO" && echo "已触发重跑"
-              fi
-            fi
-          done
-          echo "⚠️ Pages 发布重试次数用尽；站点内容已推送，定时任务会自动再试"
-          exit 0
+      - name: 配置 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传站点产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: 发布 Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署
+        id: deployment
+        uses: actions/deploy-pages@v4

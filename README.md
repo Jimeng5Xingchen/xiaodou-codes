@@ -297,37 +297,32 @@ npx wrangler pages deploy dist --project-name=xiaodou-codes
 
 详细说明与 Cloudflare 额度数据见 [`cf-pages/README.md`](cf-pages/README.md)。
 
-### 方式三：GitHub Pages（源码私有 + 站点公开）
+### 方式三：GitHub Pages（单仓库）
 
-GitHub **免费套餐不支持私有仓库开 Pages**（报 `Your current plan does not support
-GitHub Pages for this repository`），因此采用双仓库结构：
-
-| 仓库 | 可见性 | 职责 |
-|---|---|---|
-| `Jimeng5Xingchen/xiaodou-codes` | **private** | 全部源码（后端 / 前端 / 工作流），不公开 |
-| `Jimeng5Xingchen/xiaodou-pages` | public | 仅 Pages 站点产物（HTML/CSS/JS/图片/快照） |
+公开仓库 `Jimeng5Xingchen/xiaodou-codes` 同时承载源码与 Pages 站点，不再需要第二个公开站点仓。
+先把仓库设为 Public，再在 `Settings → Pages → Build and deployment → Source` 选择 **GitHub Actions**。
 
 流程由 `.github/workflows/deploy-pages.yml` 自动完成：
 
 ```
-定时（每 30 分钟）/ 手动触发
-  → Actions 拉取私有仓源码
+定时（每 30 分钟）/ 手动触发 / 推送到 main
+  → Actions 拉取源码
   → 执行 collector.run_once() 多源采集（零第三方依赖，urllib + curl）
-  → 写入 data/codes.json 快照
+  → 写入 data/codes.json 快照（采集失败时沿用仓库内基线快照）
   → scripts/build_pages.py 构建站点（注入 API 基址、sharecode、快照）
-  → 推送产物到公开仓 → 公开仓的 deploy.yml 发布 GitHub Pages
+  → actions/upload-pages-artifact + actions/deploy-pages 发布
 ```
 
-站点地址：**https://jimeng5xingchen.github.io/xiaodou-pages/**
+站点地址：**https://jimeng5xingchen.github.io/xiaodou-codes/**
 
-配置项（仓库级 variable / secret，在私有仓 `Settings → Secrets`）：
+配置项（仓库级 variable，在 `Settings → Secrets and variables → Actions`）：
 
 | 名称 | 类型 | 值 |
 |---|---|---|
 | `XD_API_BASE` | variable | 实时后端地址，如 `https://xxx.app.workbuddy.host` |
 | `XD_SHARECODE` | variable | 后端所在平台网关的 sharecode |
-| `PAGES_REPO` | variable | 公开站点仓名，默认 `Jimeng5Xingchen/xiaodou-pages` |
-| `PAGES_DEPLOY_TOKEN` | secret | 有 `repo` 权限的 PAT，用于推送站点产物 |
+
+`PAGES_REPO`、`PAGES_DEPLOY_TOKEN` 已不再需要（官方 `GITHUB_TOKEN` 负责 Pages 部署），可删除。
 
 **前端取数优先级**：`?api=` 参数 > `config.js` 运行时配置 > 构建期注入 > 同源；
 实时 API 不可用时自动回退到 `data/codes.json` 静态快照，页面顶部显示「静态快照」提示条，
