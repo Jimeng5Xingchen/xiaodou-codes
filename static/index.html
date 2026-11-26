@@ -634,6 +634,13 @@
               <button class="mini" id="mcpCopyToken">复制</button>
             </div>
           </div>
+          <div class="mcp-cell">
+            <label>免配置链接（令牌在地址里，只需填 URL 的客户端用这个）</label>
+            <div class="mcp-val">
+              <code id="mcpDirectUrl">尚未生成</code>
+              <button class="mini" id="mcpCopyDirect">复制</button>
+            </div>
+          </div>
         </div>
 
         <div class="mrow" style="margin-top:8px">
@@ -676,6 +683,16 @@
         <details class="mcp-fold">
           <summary>AI 可调用的工具</summary>
           <div class="mcp-tools" id="mcpTools"></div>
+        </details>
+
+        <details class="mcp-fold">
+          <summary>高级：自定义连接地址</summary>
+          <div class="mcp-empty">地址默认由站点配置自动注入。若你的客户端需要不同的后端地址（例如自建部署），可在这里覆盖，仅保存在本机浏览器。</div>
+          <div class="mrow" style="margin-top:8px">
+            <input id="mcpEndpointEdit" placeholder="留空则使用默认地址，如 https://your-host/mcp">
+            <button id="mcpApplyEndpoint" style="white-space:nowrap">应用</button>
+            <button id="mcpResetEndpoint" style="white-space:nowrap">恢复默认</button>
+          </div>
         </details>
       </section>
     </div>

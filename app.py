@@ -953,9 +953,14 @@ def _mcp_unauthorized(message: str) -> JSONResponse:
     )
 
 
-def _mcp_context(request: Request) -> tuple[dict | None, Response | None]:
-    """校验 MCP 令牌，返回 (上下文, 错误响应)。"""
-    raw = _mcp_token_from(request)
+def _mcp_context(request: Request, path_token: str = "") -> tuple[dict | None, Response | None]:
+    """校验 MCP 令牌，返回 (上下文, 错误响应)。
+
+    path_token 来自 ``/mcp/t/<token>`` 免配置端点：部分发布网关会改写
+    Authorization 头并丢弃 query 参数，只有 URL 路径能完整透传，
+    因此为「只能填一个 URL」的客户端提供把令牌放在路径里的形式。
+    """
+    raw = path_token or _mcp_token_from(request)
     if not raw:
         return None, _mcp_unauthorized("缺少访问令牌：请在客户端配置 X-MCP-Token 或 Authorization: Bearer")
     rec = mcp_store.resolve_token(raw)
@@ -978,10 +983,9 @@ def _mcp_context(request: Request) -> tuple[dict | None, Response | None]:
     return ctx, None
 
 
-@app.post("/mcp")
-async def api_mcp(request: Request) -> Response:
-    """MCP 主端点（Streamable HTTP 传输，JSON-RPC 2.0）。"""
-    ctx, err = _mcp_context(request)
+async def _mcp_dispatch(request: Request, path_token: str = "") -> Response:
+    """MCP 主处理逻辑（Streamable HTTP 传输，JSON-RPC 2.0）。"""
+    ctx, err = _mcp_context(request, path_token)
     if err:
         return err
     try:
@@ -1019,8 +1023,19 @@ async def api_mcp(request: Request) -> Response:
     return JSONResponse(payload, headers={"Cache-Control": "no-store"})
 
 
-@app.get("/mcp")
-def api_mcp_get() -> Response:
+@app.post("/mcp")
+async def api_mcp(request: Request) -> Response:
+    """标准端点：令牌放在 X-MCP-Token / Authorization 头。"""
+    return await _mcp_dispatch(request)
+
+
+@app.post("/mcp/t/{access_token}")
+async def api_mcp_with_token(access_token: str, request: Request) -> Response:
+    """免配置端点：令牌放在 URL 路径里，适合只能填 URL 的 MCP 客户端。"""
+    return await _mcp_dispatch(request, access_token)
+
+
+def _mcp_get_response() -> Response:
     """本服务不提供服务端主动推送，返回 405（符合 MCP 传输规范允许的行为）。"""
     return JSONResponse(
         {"ok": False, "error": "本 MCP 服务为无状态实现，不支持 GET 推送通道，请使用 POST。"},
@@ -1029,9 +1044,24 @@ def api_mcp_get() -> Response:
     )
 
 
+@app.get("/mcp")
+def api_mcp_get() -> Response:
+    return _mcp_get_response()
+
+
+@app.get("/mcp/t/{access_token}")
+def api_mcp_get_with_token(access_token: str) -> Response:
+    return _mcp_get_response()
+
+
 @app.delete("/mcp")
 def api_mcp_delete() -> Response:
     """无状态服务：结束会话等价于返回 200。"""
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/mcp/t/{access_token}")
+def api_mcp_delete_with_token(access_token: str) -> Response:
     return JSONResponse({"ok": True})
 
 

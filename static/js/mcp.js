@@ -9,7 +9,8 @@
 
   var $ = function (s) { return document.querySelector(s); };
 
-  var KEY = 'xd_mcp_creds_v1';   // 本机保存的连接令牌（明文仅存本机浏览器）
+  var KEY = 'xd_mcp_creds_v1';         // 本机保存的连接令牌（明文仅存本机浏览器）
+  var KEY_ENDPOINT = 'xd_mcp_endpoint_v1'; // 本机自定义连接地址（可为空 = 用站点配置）
 
   var state = {
     cfg: null,
@@ -66,12 +67,29 @@
     return '';
   }
 
-  /** MCP 连接地址（部分网关要求带 sharecode）。 */
-  function endpointUrl() {
+  /** MCP 默认连接地址（由站点配置注入，不是硬编码）。 */
+  function defaultEndpointUrl() {
     var url = apiBase() + '/mcp';
     var sc = sharecode();
     if (sc) url += '?sharecode=' + encodeURIComponent(sc);
     return url;
+  }
+
+  /** 本机覆盖地址；留空表示使用站点默认配置。 */
+  function endpointOverride() {
+    try { return (localStorage.getItem(KEY_ENDPOINT) || '').trim(); } catch (e) { return ''; }
+  }
+
+  function endpointUrl() {
+    return endpointOverride() || defaultEndpointUrl();
+  }
+
+  /** 免配置地址：把令牌放进路径，供只接受 URL、不能自定义请求头的客户端使用。 */
+  function directUrl(me) {
+    var t = currentToken(me);
+    if (!t) return '';
+    var url = endpointUrl();
+    return url.replace(/\/mcp(\?|$)/, '/mcp/t/' + encodeURIComponent(t) + '$1');
   }
 
   function authorizeUrl() {
@@ -222,6 +240,19 @@
     return t.slice(0, 14) + '••••••••' + t.slice(-4);
   }
 
+  function renderDirect(me) {
+    var el = $('#mcpDirectUrl');
+    if (!el) return;
+    var url = directUrl(me);
+    if (!url) {
+      el.textContent = '尚未生成 —— 点「生成连接 Token」';
+      el.style.color = 'var(--dim)';
+      return;
+    }
+    el.style.color = '';
+    el.textContent = state.showToken ? url : url.replace(/\/mcp\/t\/[^?]+/, '/mcp/t/••••••••');
+  }
+
   function renderTokens(me) {
     var box = $('#mcpTokenList');
     if (!box) return;
@@ -324,6 +355,7 @@
   function render(me) {
     renderEndpoint();
     renderToken(me);
+    renderDirect(me);
     renderState(me);
     renderTokens(me);
     renderClients();
@@ -397,11 +429,21 @@
         '小豆邀请码': {
           url: endpointUrl(),
           headers: t ? { 'X-MCP-Token': t } : {},
-          type: 'http'
+          type: 'http',
+          transport: 'streamable-http'
         }
       }
     };
-    if (!t) cfg.note = '尚未生成连接 Token，请先点「生成连接 Token」。';
+    if (t) {
+      cfg.mcpServers['小豆邀请码（免配置）'] = {
+        url: directUrl(me),
+        type: 'http',
+        transport: 'streamable-http'
+      };
+      cfg.note = '若客户端不能自定义请求头，请只保留「小豆邀请码（免配置）」这一项；令牌已包含在 URL 路径中，请勿公开分享。';
+    } else {
+      cfg.note = '尚未生成连接 Token，请先点「生成连接 Token」。';
+    }
     return JSON.stringify(cfg, null, 2);
   }
 
@@ -479,6 +521,33 @@
       copy(t, '连接 Token');
     };
 
+    var cd = $('#mcpCopyDirect');
+    if (cd) cd.onclick = function () {
+      var url = directUrl(window.ME);
+      if (!url) { toast('还没有连接 Token'); return; }
+      copy(url, '免配置链接');
+    };
+
+    var ed = $('#mcpEndpointEdit');
+    if (ed) ed.value = endpointOverride();
+    var ae = $('#mcpApplyEndpoint');
+    if (ae) ae.onclick = function () {
+      var v = (ed && ed.value.trim()) || '';
+      try {
+        if (v) localStorage.setItem(KEY_ENDPOINT, v);
+        else localStorage.removeItem(KEY_ENDPOINT);
+      } catch (e) { }
+      render(window.ME);
+      toast(v ? '自定义地址已应用' : '已恢复默认地址');
+    };
+    var re = $('#mcpResetEndpoint');
+    if (re) re.onclick = function () {
+      try { localStorage.removeItem(KEY_ENDPOINT); } catch (e) { }
+      if (ed) ed.value = '';
+      render(window.ME);
+      toast('已恢复默认地址');
+    };
+
     var cc = $('#mcpCopyCfg');
     if (cc) cc.onclick = function () { copy(clientConfig(), '客户端配置'); };
 
@@ -517,6 +586,7 @@
     load: function () { return load(true); },
     refresh: function () { return load(true); },
     endpointUrl: endpointUrl,
+    directUrl: directUrl,
     clientConfig: clientConfig
   };
 })();

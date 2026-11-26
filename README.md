@@ -234,9 +234,13 @@ static/
 `static/js/mcp.js`（`window.XDMCP`）负责这个弹窗的 AI 接入：
 
 - 展示**连接地址**与**连接 Token**（明文保存在本机浏览器 `xd_mcp_creds_v1`，按账号隔离）；
+- 展示**免配置链接**：`.../mcp/t/<token>?sharecode=...`，令牌放在 URL 路径里，供只能填 URL、不能自定义请求头的客户端使用；
+  对应的后端端点是 `POST /mcp/t/{access_token}`。注意网关会改写 `Authorization` 头并丢弃 `access_token` 查询参数，
+  所以标准端点必须用 `X-MCP-Token` 头，或用这个免配置端点；
+- 高级设置里可**自定义连接地址**（保存在本机 `xd_mcp_endpoint_v1`，留空恢复站点配置），连接地址不是硬编码；
 - 按客户端单独签发 / 重新生成 / 撤销令牌，可「断开全部」；
 - 生成**浏览器远端授权**链接（客户端名称、客户端 ID、回调地址、权限勾选），一键打开授权页；
-- 导出 MCP 客户端配置 JSON（`mcpServers` 标准格式）；
+- 导出 MCP 客户端配置 JSON（`mcpServers` 标准格式，同时给出带请求头的标准版与免配置版）；
 - 展示已授权客户端与 AI 可调用的工具清单。
 
 后端对应 `mcp_server.py`（协议与工具）、`mcp_store.py`（令牌 / 客户端 / 授权码存储）、
