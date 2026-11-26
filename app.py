@@ -489,6 +489,7 @@ def api_setup_state() -> Response:
         "initialized": auth.is_initialized(),
         "mailReady": bool(mailer._effective_account()),
         "provider": mailer.provider(),
+        "needKey": bool(auth.setup_key()),
     })
 
 
@@ -504,6 +505,7 @@ async def api_setup_init(request: Request) -> Response:
         password=str(body.get("password") or ""),
         email=str(body.get("email") or body.get("account") or ""),
         username=str(body.get("username") or ""),
+        init_key=str(body.get("setupKey") or ""),
     )
     return _auth_response(result)
 

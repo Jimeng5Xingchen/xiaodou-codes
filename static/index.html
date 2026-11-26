@@ -507,6 +507,10 @@
     <input id="suPwd" type="password" placeholder="设置管理员密码" autocomplete="new-password">
     <label for="suPwd2">确认密码</label>
     <input id="suPwd2" type="password" placeholder="再次输入密码" autocomplete="new-password">
+    <div id="suKeyRow" hidden>
+      <label for="suKey">初始化密钥<em>部署方已开启密钥校验</em></label>
+      <input id="suKey" type="password" placeholder="请输入部署时设置的初始化密钥">
+    </div>
     <button id="suSubmitBtn" class="primary sbtn">创建管理员并进入</button>
     <div class="smsg" id="suMsg"></div>
     <p class="shint">提示：若尚未配置发件邮箱，可先在此创建管理员，再进入「管理 → 系统邮箱授权」补充 SMTP 账号；

@@ -476,6 +476,10 @@
       j = await fetch(apiUrl('/api/setup/state')).then(function (r) { return r.json(); });
     } catch (e) { return; }
     if (j && j.ok && !j.initialized) {
+      if (j.needKey) {
+        var row = $('#suKeyRow');
+        if (row) row.hidden = false;
+      }
       $('#setupMask').classList.add('show');
     }
   }
@@ -499,7 +503,10 @@
       var r = await fetch(apiUrl('/api/setup/init'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account: acc, email: mail, password: pwd })
+        body: JSON.stringify({
+          account: acc, email: mail, password: pwd,
+          setupKey: ($('#suKey') ? $('#suKey').value : '').trim()
+        })
       });
       var j = await r.json();
       if (j.ok) {

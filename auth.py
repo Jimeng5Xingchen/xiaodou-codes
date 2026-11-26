@@ -652,6 +652,18 @@ def is_initialized() -> bool:
     return bool(row and row["c"])
 
 
+def setup_key() -> str:
+    """可选的初始化密钥：设置后必须带上正确的 key 才能完成初始化。
+
+    来源优先级：环境变量 XD_SETUP_KEY > 系统设置 setup_key。
+    未配置时不校验（首次部署场景）。
+    """
+    env = (os.environ.get("XD_SETUP_KEY") or "").strip()
+    if env:
+        return env
+    return store.get_setting("setup_key", "").strip()
+
+
 def count_admins() -> int:
     with _db() as conn:
         row = conn.execute(
@@ -661,7 +673,8 @@ def count_admins() -> int:
 
 
 def setup_initial_admin(
-    account: str, password: str, email: str, username: str = ""
+    account: str, password: str, email: str, username: str = "",
+    init_key: str = "",
 ) -> dict[str, Any]:
     """初始部署：创建第一个管理员账号。
 
@@ -671,6 +684,10 @@ def setup_initial_admin(
     """
     if is_initialized():
         return {"ok": False, "error": "系统已完成初始化，无法重复执行"}
+    # 可选密钥校验：防止站点公开后被他人抢先初始化
+    key = setup_key()
+    if key and not hmac.compare_digest(str(init_key or ""), key):
+        return {"ok": False, "error": "初始化密钥不正确"}
     email = (email or "").strip().lower()
     account = (account or "").strip().lower()
     if not account:
