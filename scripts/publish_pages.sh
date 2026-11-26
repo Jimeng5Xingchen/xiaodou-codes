@@ -24,7 +24,7 @@ WORK="$ROOT/site_work"
 # 1) 构建站点产物
 python3 scripts/build_pages.py --out "$BUILD"
 mkdir -p "$BUILD/.github/workflows"
-cp "$ROOT/.github/workflows/pages-site.yml" "$BUILD/.github/workflows/deploy.yml"
+cp "$ROOT/scripts/pages-site.yml" "$BUILD/.github/workflows/deploy.yml"
 
 # 2) 准备工作目录：优先克隆远端历史，保留 Pages 配置
 rm -rf "$WORK"
