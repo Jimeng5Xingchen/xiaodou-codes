@@ -1,7 +1,50 @@
 /* ==========================================================================
-   MCP / AI 授权区块样式（「我的账号」页）
+   MCP / AI 授权样式
+   「我的账号」页只放一个入口小按钮，详细操作在弹窗内完成。
    与站点玻璃拟态语言保持一致，浅色 / 深色 / 毛玻璃 / 安卓11 风格均适配。
    ========================================================================== */
+
+/* ---- 账号页入口：只占一行的紧凑按钮 ---- */
+.mcp-entry{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:9px 14px;border-radius:var(--r-pill);
+  border:1px solid var(--line);background:var(--panel2);
+  color:var(--fg);font-size:13px;font-weight:600;cursor:pointer;
+  transition:border-color .16s var(--ease),background .16s var(--ease),transform .16s var(--ease);
+}
+.mcp-entry:hover{
+  border-color:color-mix(in srgb,var(--accent2) 55%,transparent);
+  background:color-mix(in srgb,var(--accent2) 10%,var(--panel2));
+  transform:translateY(-1px);
+}
+.mcp-entry:active{transform:translateY(0)}
+.mcp-entry-dot{width:7px;height:7px;border-radius:50%;background:var(--dim);flex:0 0 7px}
+.mcp-entry-dot.on{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 18%,transparent)}
+.mcp-entry-arrow{font-size:17px;line-height:1;color:var(--dim);margin-left:2px}
+
+/* ---- 授权操作弹窗 ---- */
+.mcp-mask{
+  position:fixed;inset:0;z-index:103;display:none;
+  align-items:center;justify-content:center;padding:16px;
+  background:rgba(0,0,0,.6);
+}
+.mcp-mask.show{display:flex}
+.mcp-modal{
+  width:100%;max-width:620px;max-height:min(88vh,820px);
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);
+  box-shadow:0 24px 70px rgba(0,0,0,.4);
+}
+.mcp-modal-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
+  padding:17px 20px;border-bottom:1px solid var(--line);flex:0 0 auto;
+}
+.mcp-modal-title h3{margin:0 0 4px;font-size:17px;font-weight:650}
+.mcp-modal-title .mtip{margin:0;font-size:12px;line-height:1.65}
+.mcp-modal-head-ops{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.mcp-modal-head-ops .mclose{float:none;font-size:22px;padding:0 2px}
+.mcp-modal-body{overflow-y:auto;overscroll-behavior:contain;padding:16px 20px 20px}
+.mcp-modal .mcp-card{margin:0;padding:0;border:0;background:transparent}
 
 .mcp-card{
   margin-top:14px;padding:15px 16px;border-radius:var(--r-card);
@@ -39,6 +82,15 @@
 /* ---- 操作按钮 ---- */
 .mcp-ops{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 .mcp-ops button{font-size:13px;padding:9px 14px}
+
+/* 弹窗里的输入框显式指定配色：站点根元素固定 color-scheme:dark，
+   若不覆盖，浅色主题下原生输入框会渲染成深底白字 */
+.mcp-modal input{
+  width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--line);
+  color:var(--fg);border-radius:var(--r-ctl);padding:9px 11px;
+  font-size:13px;font-family:inherit;
+}
+.mcp-modal input:focus{outline:none;border-color:var(--accent2)}
 
 /* ---- 浏览器远端授权面板 ---- */
 .mcp-authbox{
@@ -108,4 +160,10 @@
   .mcp-head{flex-direction:column;gap:8px}
   .mcp-ops button{flex:1 1 46%}
   .mcp-tools{grid-template-columns:1fr}
+  .mcp-mask{padding:10px;align-items:flex-end}
+  .mcp-modal{max-height:92vh;border-radius:18px 18px 0 0}
+  .mcp-modal-head{padding:14px 15px}
+  .mcp-modal-title h3{font-size:15.5px}
+  .mcp-modal-head-ops .mcp-state{display:none}
+  .mcp-modal-body{padding:13px 14px 18px}
 }

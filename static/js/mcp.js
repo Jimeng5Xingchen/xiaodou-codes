@@ -101,7 +101,11 @@
     var r = await fetch(apiPath(path), opts);
     var j = null;
     try { j = await r.json(); } catch (e) { j = { ok: false, error: '响应解析失败' }; }
-    if (!j.ok && j.error) msg(j.error, 'err');
+    if (!j.ok && j.error) {
+      msg(j.error, 'err');
+      var mask = $('#mcpMask');
+      if (!mask || !mask.classList.contains('show')) toast(j.error);
+    }
     return j;
   }
 
@@ -167,12 +171,14 @@
 
   function renderState(me) {
     var el = $('#mcpState');
-    if (!el) return;
+    var dot = $('#mcpEntryDot');
     var t = currentToken(me);
     var active = 0;
     if (state.cfg && state.cfg.tokens) {
       active = state.cfg.tokens.filter(function (x) { return x.active; }).length;
     }
+    if (dot) dot.classList.toggle('on', !!(t || active));
+    if (!el) return;
     if (t) {
       el.className = 'mcp-state on';
       el.innerHTML = '<span class="dot"></span>已授权';
@@ -399,6 +405,33 @@
     return JSON.stringify(cfg, null, 2);
   }
 
+  /* ---------------- 弹窗开关 ---------------- */
+
+  var lastFocus = null;
+
+  function openModal() {
+    var mask = $('#mcpMask');
+    if (!mask) return;
+    lastFocus = document.activeElement;
+    mask.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    if (!state.cfg) load();
+    else render(window.ME);
+    if (!$('#mcpScopePicker').children.length) renderScopes();
+    var close = $('#mcpClose');
+    if (close) close.focus();
+  }
+
+  function closeModal() {
+    var mask = $('#mcpMask');
+    if (!mask || !mask.classList.contains('show')) return;
+    mask.classList.remove('show');
+    document.body.style.overflow = '';
+    if (lastFocus && lastFocus.focus) {
+      try { lastFocus.focus(); } catch (e) { }
+    }
+  }
+
   /* ---------------- 加载 ---------------- */
 
   async function load(force) {
@@ -413,6 +446,20 @@
   }
 
   function bind() {
+    var ob = $('#mcpOpenBtn');
+    if (ob) ob.onclick = openModal;
+
+    var cb = $('#mcpClose');
+    if (cb) cb.onclick = closeModal;
+
+    var mask = $('#mcpMask');
+    if (mask) mask.addEventListener('click', function (e) {
+      if (e.target === mask) closeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeModal();
+    });
+
     var btn = $('#mcpNewToken');
     if (btn) btn.onclick = createToken;
 

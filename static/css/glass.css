@@ -99,7 +99,7 @@ html[data-glass="on"]:not([data-md="on"]) :where(button,.btn).primary{
 }
 
 /* ---- 浮层玻璃（弹窗 / 面板 / 导航条 / 提示） ---- */
-html[data-glass="on"] :where(.modal,.detail-modal,.theme-pop,.toast){
+html[data-glass="on"] :where(.modal,.detail-modal,.mcp-modal,.theme-pop,.toast){
   background:color-mix(in srgb,var(--panel) calc(var(--glass-alpha) + 8%),transparent);
   -webkit-backdrop-filter:blur(calc(var(--glass-blur) + 6px)) saturate(var(--glass-sat));
   backdrop-filter:blur(calc(var(--glass-blur) + 6px)) saturate(var(--glass-sat));
@@ -118,17 +118,17 @@ html[data-glass="on"] .toast{
   -webkit-backdrop-filter:blur(16px);
   backdrop-filter:blur(16px);
 }
-html[data-glass="on"] :where(.detail-mask,.mask){
+html[data-glass="on"] :where(.detail-mask,.mcp-mask,.mask){
   background:color-mix(in srgb,var(--bg) 42%,rgba(0,0,0,.55));
   -webkit-backdrop-filter:blur(6px);
   backdrop-filter:blur(6px);
 }
 
 /* ---- 水晶描边：顶部亮、底部暗，模拟玻璃切面 ---- */
-html[data-glass="on"] :where(.panelbox,.modal,.detail-modal,.theme-pop,.reco){
+html[data-glass="on"] :where(.panelbox,.modal,.detail-modal,.mcp-modal,.theme-pop,.reco){
   position:relative;
 }
-html[data-glass="on"] :where(.panelbox,.modal,.detail-modal,.theme-pop,.reco)::after{
+html[data-glass="on"] :where(.panelbox,.modal,.detail-modal,.mcp-modal,.theme-pop,.reco)::after{
   content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
   background:linear-gradient(160deg,
     var(--glass-edge-top) 0%,
@@ -147,7 +147,7 @@ html[data-glass="on"] :where(.panelbox,.modal,.detail-modal,.theme-pop,.reco)::a
 html[data-capsule="on"] :where(button,.btn,.nav-tab,.seg,.theme-btn,.tag,.badge,.sharer,.hit-label,.mini,.fold-more,.toast){
   border-radius:999px;
 }
-html[data-capsule="on"] :where(.item,.stat,.ccard,.panelbox,.submitbox,.fold,.hit,.modal,.detail-modal,.theme-pop,.reco,.seg,.devcode){
+html[data-capsule="on"] :where(.item,.stat,.ccard,.panelbox,.submitbox,.fold,.hit,.modal,.detail-modal,.mcp-modal,.theme-pop,.reco,.seg,.devcode){
   border-radius:28px;
 }
 html[data-capsule="on"] .code{border-radius:999px;padding:6px 14px}
@@ -158,14 +158,14 @@ html[data-capsule="on"] .avatar{border-radius:50%}
   html[data-glass="on"] :where(.stat,.item,.reco,.ccard,.panelbox,.submitbox,.fold,.hit){
     background:color-mix(in srgb,var(--panel) 96%,transparent);
   }
-  html[data-glass="on"] :where(.modal,.detail-modal,.theme-pop){
+  html[data-glass="on"] :where(.modal,.detail-modal,.mcp-modal,.theme-pop){
     background:color-mix(in srgb,var(--panel) 99%,transparent);
   }
 }
 /* 低性能设备（prefers-reduced-transparency）直接关闭模糊 */
 @media (prefers-reduced-transparency:reduce){
   html[data-glass="on"] :where(.stat,.item,.reco,.ccard,.panelbox,.submitbox,.fold,.hit,
-    .modal,.detail-modal,.theme-pop,.nav,button,.btn,.nav-tab,.search,.sinput,select.sort){
+    .modal,.detail-modal,.mcp-modal,.theme-pop,.nav,button,.btn,.nav-tab,.search,.sinput,select.sort){
     -webkit-backdrop-filter:none;backdrop-filter:none;
   }
   html[data-glass="on"] :where(.stat,.item,.reco,.ccard,.panelbox,.submitbox,.fold,.hit){
@@ -174,7 +174,7 @@ html[data-capsule="on"] .avatar{border-radius:50%}
 }
 /* 高对比度偏好：加强描边 */
 @media (prefers-contrast:more){
-  html[data-glass="on"] :where(.stat,.item,.panelbox,.modal,.detail-modal,.theme-pop){
+  html[data-glass="on"] :where(.stat,.item,.panelbox,.modal,.detail-modal,.mcp-modal,.theme-pop){
     border-color:color-mix(in srgb,var(--fg) 40%,transparent);
   }
 }

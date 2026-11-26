@@ -6,7 +6,7 @@
    ============================================================ */
 
 /* ---- 超椭圆（squircle）轮廓：Android 12+ 的连续曲率 ---- */
-html[data-md="on"] :where(.item,.stat,.ccard,.panelbox,.submitbox,.fold,.hit,.reco,.modal,.detail-modal,.theme-pop,.seg){
+html[data-md="on"] :where(.item,.stat,.ccard,.panelbox,.submitbox,.fold,.hit,.reco,.modal,.detail-modal,.mcp-modal,.theme-pop,.seg){
   border-radius:22px;
 }
 html[data-md="on"] :where(button,.btn,.nav-tab,.theme-btn,.mini,.fold-more){
@@ -16,7 +16,7 @@ html[data-md="on"] .code{border-radius:14px}
 html[data-md="on"] .avatar{border-radius:50%}
 /* Chrome 139+ 支持 corner-shape: squircle，做渐进增强 */
 @supports (corner-shape:squircle){
-  html[data-md="on"] :where(.item,.stat,.ccard,.panelbox,.submitbox,.fold,.hit,.reco,.modal,.detail-modal,.theme-pop){
+  html[data-md="on"] :where(.item,.stat,.ccard,.panelbox,.submitbox,.fold,.hit,.reco,.modal,.detail-modal,.mcp-modal,.theme-pop){
     corner-shape:squircle;
   }
 }
